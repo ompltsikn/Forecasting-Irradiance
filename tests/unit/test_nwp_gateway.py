@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -214,3 +216,41 @@ def test_decode_rejects_issue_time_mismatch(monkeypatch, tmp_path: Path) -> None
     monkeypatch.setattr(module, "_decode_grib_path", lambda path, site: (mismatched,))
     with pytest.raises(module.GribDecodeError, match="issue time"):
         decode_nearest_site_fields(run, SITE)
+
+
+def test_decoder_captures_grib_packing_error(monkeypatch, tmp_path: Path) -> None:
+    module = __import__("src.ingestion.nwp_archiver", fromlist=["dummy"])
+    path = tmp_path / "solar.grib2"
+    path.write_bytes(b"GRIB")
+    handle = object()
+    handles = iter((handle, None))
+    released: list[object] = []
+    values: dict[str, object] = {
+        "dataDate": 20260716,
+        "dataTime": 600,
+        "validityDate": 20260716,
+        "validityTime": 1200,
+        "shortName": "ssrd",
+        "units": "J m**-2",
+        "startStep": 0,
+        "endStep": 6,
+        "stepType": "accum",
+        "packingError": 256.0,
+    }
+    monkeypatch.setitem(
+        sys.modules,
+        "eccodes",
+        SimpleNamespace(
+            codes_get=lambda _, key: values[key],
+            codes_grib_find_nearest=lambda *_: (
+                SimpleNamespace(value=999_488.0, lat=-1.0, lon=116.75),
+            ),
+            codes_grib_new_from_file=lambda _: next(handles),
+            codes_release=released.append,
+        ),
+    )
+
+    decoded = module._decode_grib_path(path, SITE)
+
+    assert decoded[0].packing_error == 256.0
+    assert released == [handle]

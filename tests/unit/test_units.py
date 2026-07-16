@@ -25,6 +25,7 @@ def field(
     start: int = 0,
     units: str = "J m**-2",
     step_type: str = "accum",
+    packing_error: float = 0.0,
 ) -> DecodedField:
     return DecodedField(
         parameter="ssrd",
@@ -37,6 +38,7 @@ def field(
         step_type=step_type,
         grid_latitude=-1.0,
         grid_longitude=116.75,
+        packing_error=packing_error,
     )
 
 
@@ -76,6 +78,23 @@ def test_tiny_negative_roundoff_is_zero_but_material_negative_fails() -> None:
     material = (field(end=0, value=1000.0), field(end=3, value=999.99))
     with pytest.raises(AccumulationError, match="negative"):
         deaccumulate_fields(material, (3,), "energy")
+
+
+def test_negative_within_combined_grib_packing_error_is_zero() -> None:
+    packed = (
+        field(end=6, value=1_000_000.0, packing_error=256.0),
+        field(end=12, value=999_488.0, packing_error=256.0),
+    )
+    assert deaccumulate_fields(packed, (12,), "energy")[12].interval_value == 0.0
+
+
+def test_negative_beyond_combined_grib_packing_error_is_rejected() -> None:
+    packed = (
+        field(end=6, value=1_000_000.0, packing_error=256.0),
+        field(end=12, value=999_487.0, packing_error=256.0),
+    )
+    with pytest.raises(AccumulationError, match="negative"):
+        deaccumulate_fields(packed, (12,), "energy")
 
 
 @pytest.mark.parametrize(

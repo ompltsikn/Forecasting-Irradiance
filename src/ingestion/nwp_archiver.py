@@ -11,7 +11,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
-from math import asin, cos, radians, sin, sqrt
+from math import asin, cos, isfinite, radians, sin, sqrt
 from pathlib import Path, PurePosixPath
 from typing import AbstractSet, Iterable, Literal, Protocol, Sequence
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -110,6 +110,7 @@ class DecodedField:
     step_type: str
     grid_latitude: float
     grid_longitude: float
+    packing_error: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -216,13 +217,22 @@ def _normalise_accumulation_value(
     raise AccumulationError(f"unexpected depth units: {units}")
 
 
+def _normalise_packing_error(
+    field: DecodedField,
+    family: Literal["energy", "depth"],
+) -> float:
+    if not isfinite(field.packing_error) or field.packing_error < 0:
+        raise AccumulationError("packing_error must be finite and non-negative")
+    return _normalise_accumulation_value(field.packing_error, field.units, family)
+
+
 def deaccumulate_fields(
     fields: Iterable[DecodedField],
     output_steps_h: Iterable[int],
     unit_family: Literal["energy", "depth"],
 ) -> dict[int, AccumulationResult]:
     by_end = {field.end_step_h: field for field in fields}
-    tolerance = (
+    minimum_tolerance = (
         SSRD_NEGATIVE_TOLERANCE_JM2
         if unit_family == "energy"
         else PRECIP_NEGATIVE_TOLERANCE_M
@@ -237,6 +247,7 @@ def deaccumulate_fields(
         current_value = _normalise_accumulation_value(
             current.value, current.units, unit_family
         )
+        packing_tolerance = _normalise_packing_error(current, unit_family)
         if current.start_step_h == 0 and current.end_step_h == 0:
             results[end_step] = AccumulationResult(
                 raw_value=current_value,
@@ -271,8 +282,10 @@ def deaccumulate_fields(
             except AccumulationError as exc:
                 raise AccumulationError(f"predecessor {exc}") from exc
             interval = current_value - previous_value
+            packing_tolerance += _normalise_packing_error(previous, unit_family)
             seconds = (current.end_step_h - previous.end_step_h) * 3600
             method = "run_total_difference"
+        tolerance = max(minimum_tolerance, packing_tolerance)
         if interval < -tolerance:
             raise AccumulationError(f"material negative accumulation: {interval}")
         if interval < 0:
@@ -723,6 +736,7 @@ def _decode_grib_path(path: Path, site: SitePoint) -> tuple[DecodedField, ...]:
                         step_type=str(codes_get(handle, "stepType")),
                         grid_latitude=float(nearest.lat),
                         grid_longitude=_normalise_longitude(float(nearest.lon)),
+                        packing_error=float(codes_get(handle, "packingError")),
                     )
                 )
             finally:
