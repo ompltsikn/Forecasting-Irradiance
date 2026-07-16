@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import pytest
@@ -10,6 +10,7 @@ from data_contracts.nwp_schema import (
     available_nwp_as_of,
     validate_nwp_frame,
 )
+from src.ingestion.nwp_archiver import measured_latency_minutes, require_utc
 
 
 def test_three_timestamps_are_distinct_non_null_utc_columns(
@@ -54,3 +55,17 @@ def test_future_valid_forecast_is_available_at_retrieval(
     )
     assert len(result) == 2
     assert result["valid_time_utc"].max() == pd.Timestamp("2026-07-16T09:00:00Z")
+
+
+def test_measured_latency_uses_retrieval_minus_issue() -> None:
+    issue = datetime(2026, 7, 16, 6, tzinfo=timezone.utc)
+    retrieved = datetime(2026, 7, 16, 7, 15, 30, tzinfo=timezone.utc)
+    assert measured_latency_minutes(issue, retrieved) == 75.5
+
+
+def test_require_utc_rejects_naive_and_non_utc() -> None:
+    with pytest.raises(ValueError, match="UTC"):
+        require_utc(datetime(2026, 7, 16, 6))
+    wita = timezone(timedelta(hours=8))
+    with pytest.raises(ValueError, match="UTC"):
+        require_utc(datetime(2026, 7, 16, 14, tzinfo=wita))
