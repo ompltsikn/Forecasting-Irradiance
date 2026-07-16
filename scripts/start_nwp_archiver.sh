@@ -199,7 +199,7 @@ python -m src.ingestion.nwp_archiver select \
   --candidates-json "${candidates_json}" \
   --committed-json "${committed_json}" \
   --result-json "${selection_json}"
-mapfile -t selected < <(jq -er '.selected_issue_times_utc[]' "${selection_json}")
+mapfile -t selected < <(jq -r '.selected_issue_times_utc[]?' "${selection_json}")
 
 if ((${#selected[@]} == 0)); then
   summary "- ${model}: no uncommitted cycles"

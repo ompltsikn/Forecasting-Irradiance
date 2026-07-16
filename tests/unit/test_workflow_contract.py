@@ -73,6 +73,15 @@ def test_launcher_normalises_fractional_timestamps_for_latency_summary() -> None
     assert text.count('sub("\\\\.[0-9]+Z$"; "Z")') == 2
 
 
+def test_launcher_treats_an_empty_selection_as_a_clean_idempotent_skip() -> None:
+    text = LAUNCHER.read_text(encoding="utf-8")
+    assert (
+        "mapfile -t selected < <(jq -r "
+        "'.selected_issue_times_utc[]?' \"${selection_json}\")"
+    ) in text
+    assert "jq -er '.selected_issue_times_utc[]'" not in text
+
+
 def test_workflow_cleans_the_exact_launcher_work_root() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     archive_start = text.index("\n  archive:")
