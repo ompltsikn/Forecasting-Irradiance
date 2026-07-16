@@ -83,8 +83,8 @@ summary_manifest() {
   local valid_min valid_max
   manifest_issue="$(jq -er '.issue_time_utc' <<< "${manifest}")"
   latency="$(jq -er '
-    ((.retrieved_at_utc | fromdateiso8601) -
-     (.issue_time_utc | fromdateiso8601)) / 60
+    ((.retrieved_at_utc | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) -
+     (.issue_time_utc | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601)) / 60
   ' <<< "${manifest}")"
   rows="$(jq -er '.row_count' <<< "${manifest}")"
   parameters="$(jq -er '.received_parameters | length' <<< "${manifest}")"

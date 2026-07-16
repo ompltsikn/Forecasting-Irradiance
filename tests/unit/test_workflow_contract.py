@@ -68,6 +68,11 @@ def test_launcher_uses_tested_python_selection_and_full_summary_contract() -> No
     assert "trap report_failure ERR" in text
 
 
+def test_launcher_normalises_fractional_timestamps_for_latency_summary() -> None:
+    text = LAUNCHER.read_text(encoding="utf-8")
+    assert text.count('sub("\\\\.[0-9]+Z$"; "Z")') == 2
+
+
 def test_workflow_cleans_the_exact_launcher_work_root() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     archive_start = text.index("\n  archive:")
@@ -79,6 +84,14 @@ def test_workflow_cleans_the_exact_launcher_work_root() -> None:
     ) == 2
     assert 'rm -rf -- "${NWP_WORK_ROOT}"' in text
     assert "nwp-archiver.*" not in text
+
+
+def test_workflow_serialises_google_drive_writes() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    strategy_start = text.index("\n    strategy:")
+    steps_start = text.index("\n    steps:", strategy_start)
+    strategy = text[strategy_start:steps_start]
+    assert "max-parallel: 1" in strategy
 
 
 def test_readme_contains_safety_gate_and_ecmwf_attribution() -> None:
