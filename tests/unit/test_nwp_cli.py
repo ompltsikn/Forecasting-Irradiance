@@ -109,6 +109,77 @@ def test_archive_issue_runs_the_validated_pipeline(
     assert captured["smoke"] is True
 
 
+@pytest.mark.parametrize(
+    ("issue_hour", "expected_steps"),
+    [
+        (6, tuple(range(0, 91, 3))),
+        (12, tuple(range(0, 145, 3))),
+    ],
+)
+def test_archive_issue_uses_the_exact_issue_specific_ifs_inventory(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    issue_hour: int,
+    expected_steps: tuple[int, ...],
+) -> None:
+    issue = datetime(2026, 7, 16, issue_hour, tzinfo=UTC)
+    run = nwp.RetrievedRun(
+        model=nwp.NwpModel.IFS,
+        issue_time_utc=issue,
+        retrieved_at_utc=RETRIEVED,
+        files_by_group={},
+    )
+    captured: dict[str, object] = {}
+    sentinel = object()
+
+    def fake_retrieve(gateway, profile, issue_time_utc, work_root, *, clock):
+        captured["retrieve_profile"] = profile
+        captured["retrieve_issue"] = issue_time_utc
+        return run
+
+    def fake_decode(retrieved_run, site):
+        profile = captured["retrieve_profile"]
+        return tuple(
+            SimpleNamespace(parameter=parameter, end_step_h=step)
+            for parameter in profile.parameters
+            for step in profile.request_steps_h
+        )
+
+    def fake_normalise(fields, *, site, profile, **kwargs):
+        captured["normalise_profile"] = profile
+        return "frame"
+
+    def fake_write(frame, **kwargs):
+        captured.update({"frame": frame, **kwargs})
+        return sentinel
+
+    monkeypatch.setattr(nwp, "retrieve_explicit_run", fake_retrieve)
+    monkeypatch.setattr(nwp, "decode_nearest_site_fields", fake_decode)
+    monkeypatch.setattr(nwp, "normalise_run", fake_normalise)
+    monkeypatch.setattr(nwp, "_dependency_versions", lambda: ("0.3.30", "2.47.0"))
+    monkeypatch.setattr(nwp, "write_archive_attempt", fake_write)
+
+    output_root = tmp_path / "out"
+    result = nwp.archive_issue(
+        gateway=LatestGateway(),
+        site=nwp.load_site_point(Path("configs/site_plts-ikn.yaml")),
+        model=nwp.NwpModel.IFS,
+        profile_name=nwp.ArchiveProfile.FULL,
+        issue_time_utc=issue,
+        work_root=tmp_path / "work",
+        output_root=output_root,
+        clock=lambda: RETRIEVED,
+    )
+
+    assert result is sentinel
+    assert captured["retrieve_issue"] == issue
+    assert captured["retrieve_profile"] is captured["normalise_profile"]
+    assert captured["requested_steps_h"] == expected_steps
+    assert captured["received_steps_h"] == expected_steps
+    assert captured["output_root"] == output_root
+    assert captured["smoke"] is False
+
+
 def test_select_cli_uses_tested_latest_plus_oldest_scheduler_policy(
     tmp_path: Path,
 ) -> None:

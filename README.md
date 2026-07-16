@@ -12,6 +12,22 @@ The archiver captures ECMWF Open Data IFS and AIFS Single forecasts for the near
 
 These columns must never be collapsed because observed retrieval time is required to prevent issue-time leakage.
 
+The current ECMWF Cycle 50r1 issue-cycle contract is not a single IFS horizon:
+
+- IFS `oper` forecast (`type=fc`) issues at 00/12 UTC use steps `0..144` every 3 hours.
+- IFS issues at 06/18 UTC use steps `0..90` every 3 hours.
+- AIFS Single issues at 00/06/12/18 UTC use steps `0..144` every 6 hours.
+
+IFS discovery deliberately queries the `0..90` inventory shared by all four
+cycles, then freezes the returned issue time and builds the exact
+issue-specific archive request. The Parquet manifest therefore records the
+steps actually requested for that issue rather than a fictional common IFS
+horizon. The smoke profile remains the accumulated-field predecessor plus
+lead +48 h.
+
+ECMWF documents the current real-time IFS and AIFS availability in the
+[official Open Data forecast schedule](https://confluence.ecmwf.int/spaces/DAC/pages/272310539/ECMWF+open+data+real-time+forecasts+from+IFS+and+AIFS).
+
 ## Local offline verification
 
 ```powershell

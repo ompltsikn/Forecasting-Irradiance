@@ -13,7 +13,26 @@
 - Treat `PRD_Forecasting_Irradiance_ML.md`, `MASTER_CONTEXT_Forecasting_Irradiance_ML.md`, `ROADMAP_Forecasting_Irradiance_ML.md`, and `docs/superpowers/specs/2026-07-16-nwp-archiver-design.md` as one contract.
 - Build no forecasting model, MOS, separation model, interpolation, or ERA5 substitution in Sprint 0.
 - Use ECMWF Open Data source `google`, model names `ifs` and `aifs-single`, resolution `0p25`, stream `oper`, type `fc`, and surface fields only.
-- Archive IFS steps `0..144` every 3 hours and AIFS Single steps `0..144` every 6 hours; smoke retrieves an SSRD predecessor plus +48 h and publishes only +48 h.
+- Archive the issue-specific IFS horizon and AIFS Single steps `0..144` every 6 hours; smoke retrieves an SSRD predecessor plus +48 h and publishes only +48 h.
+
+## Execution correction (2026-07-16): IFS Cycle 50r1 horizons
+
+The original plan treated every IFS issue as if it exposed steps `0..144`.
+ECMWF's current real-time contract is issue-cycle dependent: 00/12 UTC IFS
+issues expose `0..144` every 3 hours, while 06/18 UTC issues expose `0..90`
+every 3 hours. AIFS Single remains `0..144` every 6 hours for all four cycles.
+The authoritative schedule is:
+https://confluence.ecmwf.int/spaces/DAC/pages/272310539/ECMWF+open+data+real-time+forecasts+from+IFS+and+AIFS
+
+This erratum supersedes later IFS snippets that call
+`request_profile_for(IFS, FULL)` without an explicit issue time when constructing
+an archive request. Discovery must use the common IFS `0..90` inventory so a
+latest 06/18 issue can be found. After discovery, profile selection receives the
+exact issue time and chooses `0..144` for 00/12 or `0..90` for 06/18. Retrieval,
+normalization, and manifest inventories must all use that same selected profile.
+Non-synoptic explicit issue times are rejected. The smoke predecessor/+48
+contract is unchanged.
+
 - Never use unsupported client-side `area` cropping. Select the nearest grid point locally and store the actual grid coordinates and haversine distance.
 - Store all timestamps as timezone-aware UTC. Keep `issue_time_utc`, `valid_time_utc`, and `retrieved_at_utc` as three independent columns.
 - Keep Bronze append-only. Upload Parquet first and the complete manifest last; a run without a readable complete manifest is uncommitted.
@@ -73,12 +92,14 @@ Create `tests/unit/test_nwp_profiles.py`:
 from __future__ import annotations
 
 import importlib
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
 
 MODULE_PATH = Path("src/ingestion/nwp_archiver.py")
+UTC = timezone.utc
 
 
 def load_archiver_module():
@@ -115,12 +136,19 @@ def test_site_config_rejects_null_required_value(tmp_path: Path) -> None:
         module.load_site_point(path)
 
 
-def test_full_ifs_profile_is_exact() -> None:
+@pytest.mark.parametrize(("issue_hour", "last_step"), [(0, 144), (6, 90), (12, 144), (18, 90)])
+def test_full_ifs_profile_is_issue_specific(
+    issue_hour: int, last_step: int
+) -> None:
     module = load_archiver_module()
-    profile = module.request_profile_for(module.NwpModel.IFS, module.ArchiveProfile.FULL)
+    profile = module.request_profile_for(
+        module.NwpModel.IFS,
+        module.ArchiveProfile.FULL,
+        issue_time_utc=datetime(2026, 7, 16, issue_hour, tzinfo=UTC),
+    )
     assert profile.nwp_source == "ecmwf_ifs"
-    assert profile.request_steps_h == tuple(range(0, 145, 3))
-    assert profile.output_steps_h == tuple(range(0, 145, 3))
+    assert profile.request_steps_h == tuple(range(0, last_step + 1, 3))
+    assert profile.output_steps_h == tuple(range(0, last_step + 1, 3))
     assert profile.parameters == (
         "ssrd", "tcc", "2t", "2d", "10u", "10v", "tp", "sp", "tcwv", "mucape"
     )

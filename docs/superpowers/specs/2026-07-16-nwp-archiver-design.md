@@ -40,7 +40,7 @@ This work does not include:
 | Site timezone | `Asia/Makassar`; storage remains UTC |
 | ECMWF client source | `google`, the mirror already proven by the Colab smoke test |
 | ECMWF models | API names `ifs` and `aifs-single` |
-| IFS horizon | 0 through +144 h, every 3 h |
+| IFS horizon | 00/12 UTC: 0 through +144 h every 3 h; 06/18 UTC: 0 through +90 h every 3 h |
 | AIFS horizon | 0 through +144 h, every 6 h |
 | Spatial method | nearest grid point, selected locally from each GRIB message |
 | Scheduler | canonical GitHub repository `ompltsikn/Forecasting-Irradiance` |
@@ -105,13 +105,22 @@ The production entry point is always `python -m src.ingestion.nwp_archiver`; no 
 
 ### 6.1 Full archive profile
 
-IFS uses steps `0, 3, ..., 144`. Its solar and supporting weather inventory includes `ssrd`, `tcc`, `2t`, `2d`, `10u`, `10v`, `tp`, `sp`, `tcwv`, and `mucape`.
+IFS uses an issue-specific Cycle 50r1 horizon. The 00/12 UTC issues use steps
+`0, 3, ..., 144`; the 06/18 UTC issues use steps `0, 3, ..., 90`. Its solar
+and supporting weather inventory includes `ssrd`, `tcc`, `2t`, `2d`, `10u`,
+`10v`, `tp`, `sp`, `tcwv`, and `mucape`.
 
 AIFS Single uses steps `0, 6, ..., 144`. Its inventory includes `ssrd`, `tcc`, `lcc`, `mcc`, `hcc`, `2t`, `2d`, `10u`, `10v`, `tp`, `sp`, and `cp`.
 
 Parameters are requested in model-specific groups so an error identifies the exact missing group. A committed full run requires every parameter declared for that model. A partial download is never published as a committed run.
 
-The client first calls `latest()` with the complete required step set. It then calls `retrieve()` with that returned issue time explicitly. This prevents a run rollover between discovery and download and makes the archive reproducible.
+The client first calls `latest()` with the IFS `0..90` step inventory that is
+available in every 00/06/12/18 cycle (or the unchanged AIFS inventory). It then
+calls `retrieve()` with that returned issue time explicitly and selects the
+correct issue-specific IFS horizon. This allows a newly available 06/18 issue
+to win discovery while preventing a run rollover between discovery and
+download. The exact issue-specific requested steps are carried through
+retrieval, validation, Parquet normalization, and the manifest.
 
 After discovering the latest complete issue time, the archiver derives the expected 00/06/12/18 UTC issue cycles within the preceding 60 hours. It checks committed Drive manifests for those explicit cycles. This recovers scheduler gaps while runs remain inside ECMWF's rolling window; it is not a substitute for a licensed historical archive.
 
@@ -263,6 +272,8 @@ The workflow retains no successful local GRIB file. GRIB is a transport artifact
 The default test suite is network-free. It covers:
 
 1. exact model names, parameter inventories, and step sequences;
+   for IFS this includes the 00/12 long horizon, 06/18 short horizon, and
+   common discovery inventory;
 2. timezone-aware issue, valid, and retrieval timestamps;
 3. lead-time calculation and primary-key uniqueness;
 4. nearest-grid longitude normalization and stored grid evidence;
@@ -305,3 +316,6 @@ S0-1 itself is complete only after the scheduler is enabled and the Drive archiv
 ## 14. Attribution
 
 Every manifest records ECMWF as the source, the Open Data dataset URL, and the `CC-BY-4.0` licence identifier. Repository documentation must include the same attribution before the scheduler is enabled.
+
+The current real-time issue-cycle and horizon behavior is sourced from ECMWF's
+[official IFS and AIFS Open Data forecast schedule](https://confluence.ecmwf.int/spaces/DAC/pages/272310539/ECMWF+open+data+real-time+forecasts+from+IFS+and+AIFS).

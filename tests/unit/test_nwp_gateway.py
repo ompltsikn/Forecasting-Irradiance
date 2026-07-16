@@ -9,7 +9,6 @@ from src.ingestion.nwp_archiver import (
     ArchiveProfile,
     NwpModel,
     SitePoint,
-    build_request,
     decode_nearest_site_fields,
     discover_latest_issue,
     request_profile_for,
@@ -49,14 +48,31 @@ class FakeGateway:
         target.write_bytes(b"GRIB")
 
 
-def test_discovery_request_has_no_issue_date_or_time() -> None:
-    profile = request_profile_for(NwpModel.IFS, ArchiveProfile.FULL)
-    request = build_request(profile, profile.groups[0], issue_time_utc=None)
+def test_discovery_request_uses_inventory_available_to_every_ifs_cycle() -> None:
+    gateway = FakeGateway()
+    latest = discover_latest_issue(
+        gateway,
+        model=NwpModel.IFS,
+        profile_name=ArchiveProfile.FULL,
+    )
+    assert latest == ISSUE
+    request = gateway.latest_calls[0]
     assert request["stream"] == "oper"
     assert request["type"] == "fc"
     assert request["levtype"] == "sfc"
-    assert request["step"] == list(range(0, 145, 3))
-    assert request["param"] == ["ssrd", "tcc"]
+    assert request["step"] == list(range(0, 91, 3))
+    assert request["param"] == [
+        "ssrd",
+        "tcc",
+        "2t",
+        "2d",
+        "10u",
+        "10v",
+        "tp",
+        "sp",
+        "tcwv",
+        "mucape",
+    ]
     assert "date" not in request
     assert "time" not in request
     assert "area" not in request
@@ -65,7 +81,11 @@ def test_discovery_request_has_no_issue_date_or_time() -> None:
 def test_latest_result_is_frozen_into_explicit_retrieve(tmp_path: Path) -> None:
     profile = request_profile_for(NwpModel.IFS, ArchiveProfile.SMOKE)
     gateway = FakeGateway()
-    latest = discover_latest_issue(gateway, profile)
+    latest = discover_latest_issue(
+        gateway,
+        model=NwpModel.IFS,
+        profile_name=ArchiveProfile.SMOKE,
+    )
     run = retrieve_explicit_run(
         gateway,
         profile,

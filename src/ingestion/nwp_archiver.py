@@ -35,6 +35,9 @@ SSRD_NEGATIVE_TOLERANCE_JM2 = 1e-6
 PRECIP_NEGATIVE_TOLERANCE_M = 1e-9
 ECMWF_DATASET_URL = "https://www.ecmwf.int/en/forecasts/datasets/open-data"
 ECMWF_LICENCE_ID = "CC-BY-4.0"
+IFS_LONG_STEPS_H = tuple(range(0, 145, 3))
+IFS_SHORT_STEPS_H = tuple(range(0, 91, 3))
+AIFS_STEPS_H = tuple(range(0, 145, 6))
 
 
 class SiteConfigError(ValueError):
@@ -520,15 +523,41 @@ def load_site_point(config_path: Path) -> SitePoint:
     return result
 
 
-def request_profile_for(model: NwpModel, profile: ArchiveProfile) -> RequestProfile:
+def _require_synoptic_issue(value: datetime) -> datetime:
+    issue = require_utc(value)
+    if (
+        issue.minute != 0
+        or issue.second != 0
+        or issue.microsecond != 0
+        or issue.hour not in {0, 6, 12, 18}
+    ):
+        raise ValueError("issue must be an exact 00/06/12/18 UTC cycle")
+    return issue
+
+
+def request_profile_for(
+    model: NwpModel,
+    profile: ArchiveProfile,
+    *,
+    issue_time_utc: datetime | None = None,
+) -> RequestProfile:
+    issue = (
+        _require_synoptic_issue(issue_time_utc)
+        if issue_time_utc is not None
+        else None
+    )
     if model is NwpModel.IFS:
         source: Literal["ecmwf_ifs", "ecmwf_aifs_single"] = "ecmwf_ifs"
-        full_steps = tuple(range(0, 145, 3))
+        full_steps = (
+            IFS_SHORT_STEPS_H
+            if issue is not None and issue.hour in {6, 18}
+            else IFS_LONG_STEPS_H
+        )
         groups = IFS_GROUPS
         smoke_steps = (45, 48)
     else:
         source = "ecmwf_aifs_single"
-        full_steps = tuple(range(0, 145, 6))
+        full_steps = AIFS_STEPS_H
         groups = AIFS_GROUPS
         smoke_steps = (42, 48)
     if profile is ArchiveProfile.SMOKE:
@@ -568,10 +597,29 @@ def build_request(
     return request
 
 
+def _discovery_profile_for(
+    model: NwpModel,
+    profile_name: ArchiveProfile,
+) -> RequestProfile:
+    profile = request_profile_for(model, profile_name)
+    if model is NwpModel.IFS and profile_name is not ArchiveProfile.SMOKE:
+        return RequestProfile(
+            model=profile.model,
+            nwp_source=profile.nwp_source,
+            request_steps_h=IFS_SHORT_STEPS_H,
+            output_steps_h=IFS_SHORT_STEPS_H,
+            groups=profile.groups,
+        )
+    return profile
+
+
 def discover_latest_issue(
     gateway: OpenDataGateway,
-    profile: RequestProfile,
+    *,
+    model: NwpModel,
+    profile_name: ArchiveProfile,
 ) -> datetime:
+    profile = _discovery_profile_for(model, profile_name)
     combined = ParameterGroup("complete", profile.parameters)
     return require_utc(
         gateway.latest(
@@ -928,7 +976,7 @@ def discover_candidate_cycles(
             raise ValueError(
                 "explicit issue time is not allowed for catchup/scheduled"
             )
-        return (require_utc(explicit_issue_time_utc),)
+        return (_require_synoptic_issue(explicit_issue_time_utc),)
     profile_name = (
         ArchiveProfile.SMOKE
         if mode is SelectionMode.SMOKE
@@ -936,7 +984,8 @@ def discover_candidate_cycles(
     )
     latest = discover_latest_issue(
         gateway,
-        request_profile_for(model, profile_name),
+        model=model,
+        profile_name=profile_name,
     )
     if mode in {SelectionMode.SMOKE, SelectionMode.FULL}:
         return (latest,)
@@ -954,7 +1003,11 @@ def archive_issue(
     output_root: Path,
     clock: Callable[[], datetime],
 ) -> ArchiveArtifact:
-    profile = request_profile_for(model, profile_name)
+    profile = request_profile_for(
+        model,
+        profile_name,
+        issue_time_utc=issue_time_utc,
+    )
     run = retrieve_explicit_run(
         gateway,
         profile,
