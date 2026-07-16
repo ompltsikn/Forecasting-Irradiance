@@ -84,8 +84,6 @@ jobs:
     if: needs.configure.outputs.run == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 180
-    env:
-      NWP_WORK_ROOT: ${{ runner.temp }}/nwp-archiver-work
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.configure.outputs.matrix) }}
@@ -142,6 +140,7 @@ jobs:
 
       - name: Run NWP archiver
         env:
+          NWP_WORK_ROOT: ${{ runner.temp }}/nwp-archiver-work
           NWP_DESTINATION: ${{ vars.NWP_DESTINATION }}
           RUN_PROFILE: ${{ needs.configure.outputs.profile }}
           RUN_MODEL: ${{ matrix.model }}
@@ -161,6 +160,8 @@ jobs:
 
       - name: Cleanup credentials and transient files
         if: always()
+        env:
+          NWP_WORK_ROOT: ${{ runner.temp }}/nwp-archiver-work
         shell: bash
         run: |
           set -Eeuo pipefail

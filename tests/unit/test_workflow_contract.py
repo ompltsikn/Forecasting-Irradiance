@@ -70,7 +70,13 @@ def test_launcher_uses_tested_python_selection_and_full_summary_contract() -> No
 
 def test_workflow_cleans_the_exact_launcher_work_root() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
-    assert 'NWP_WORK_ROOT: ${{ runner.temp }}/nwp-archiver-work' in text
+    archive_start = text.index("\n  archive:")
+    strategy_start = text.index("\n    strategy:", archive_start)
+    job_preamble = text[archive_start:strategy_start]
+    assert "runner.temp" not in job_preamble
+    assert text.count(
+        'NWP_WORK_ROOT: ${{ runner.temp }}/nwp-archiver-work'
+    ) == 2
     assert 'rm -rf -- "${NWP_WORK_ROOT}"' in text
     assert "nwp-archiver.*" not in text
 
