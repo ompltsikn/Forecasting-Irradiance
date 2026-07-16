@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import hashlib
+import shutil
+import tempfile
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
 from math import asin, cos, radians, sin, sqrt
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import AbstractSet, Iterable, Literal, Protocol, Sequence
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -16,7 +19,10 @@ import yaml
 from data_contracts.nwp_schema import (
     NWP_COLUMNS,
     NWP_SCHEMA_VERSION,
+    RunManifest,
     canonicalize_nwp_frame,
+    load_and_validate_manifest,
+    validate_manifest,
 )
 
 
@@ -114,6 +120,14 @@ class AccumulationResult:
     interval_value: float | None
     interval_seconds: int
     method: str
+
+
+@dataclass(frozen=True)
+class ArchiveArtifact:
+    run_directory: Path
+    parquet_path: Path
+    manifest_path: Path
+    manifest: RunManifest
 
 
 class OpenDataGateway(Protocol):
@@ -290,6 +304,135 @@ def require_utc(value: datetime) -> datetime:
     if value.tzinfo is None or value.utcoffset() != timedelta(0):
         raise ValueError("timestamp must be timezone-aware UTC")
     return value
+
+
+def partition_relative_path(
+    *,
+    nwp_source: str,
+    issue_time_utc: datetime,
+    retrieved_at_utc: datetime,
+    smoke: bool,
+) -> PurePosixPath:
+    issue = require_utc(issue_time_utc)
+    retrieved = require_utc(retrieved_at_utc)
+    parts = (
+        f"nwp_source={nwp_source}",
+        f"issue_date={issue:%Y-%m-%d}",
+        f"issue_hour={issue:%H}",
+        f"retrieved_at={retrieved:%Y%m%dT%H%M%SZ}",
+    )
+    return PurePosixPath("_smoke", *parts) if smoke else PurePosixPath(*parts)
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _single_value(frame: pd.DataFrame, column: str):
+    values = frame[column].drop_duplicates()
+    if len(values) != 1:
+        raise ValueError(f"{column} must be constant within an archive attempt")
+    return values.iloc[0]
+
+
+def write_archive_attempt(
+    frame: pd.DataFrame,
+    *,
+    output_root: Path,
+    requested_parameters: tuple[str, ...],
+    requested_steps_h: tuple[int, ...],
+    received_parameters: tuple[str, ...],
+    received_steps_h: tuple[int, ...],
+    smoke: bool,
+) -> ArchiveArtifact:
+    validated = canonicalize_nwp_frame(frame).reindex(columns=NWP_COLUMNS)
+    issue = pd.Timestamp(
+        _single_value(validated, "issue_time_utc")
+    ).to_pydatetime()
+    retrieved = pd.Timestamp(
+        _single_value(validated, "retrieved_at_utc")
+    ).to_pydatetime()
+    nwp_source = str(_single_value(validated, "nwp_source"))
+    relative = partition_relative_path(
+        nwp_source=nwp_source,
+        issue_time_utc=issue,
+        retrieved_at_utc=retrieved,
+        smoke=smoke,
+    )
+    output_root = Path(output_root)
+    final_directory = output_root.joinpath(*relative.parts)
+    if final_directory.exists():
+        raise FileExistsError(f"attempt already exists: {final_directory}")
+
+    output_root.mkdir(parents=True, exist_ok=True)
+    temporary_root = output_root / ".tmp"
+    temporary_root.mkdir(exist_ok=True)
+    temporary_directory = Path(
+        tempfile.mkdtemp(prefix="nwp-", dir=temporary_root)
+    )
+    try:
+        parquet_path = temporary_directory / "weather_forecast_raw.parquet"
+        validated.to_parquet(parquet_path, engine="pyarrow", index=False)
+        manifest = RunManifest(
+            schema_version=NWP_SCHEMA_VERSION,
+            status="complete",
+            site_id=str(_single_value(validated, "site_id")),
+            nwp_provider="ecmwf_opendata",
+            nwp_source=nwp_source,
+            nwp_model=str(_single_value(validated, "nwp_model")),
+            issue_time_utc=issue,
+            retrieved_at_utc=retrieved,
+            requested_parameters=requested_parameters,
+            received_parameters=received_parameters,
+            requested_steps_h=requested_steps_h,
+            received_steps_h=received_steps_h,
+            grid_latitude=float(_single_value(validated, "grid_latitude")),
+            grid_longitude=float(_single_value(validated, "grid_longitude")),
+            grid_distance_km=float(
+                _single_value(validated, "grid_distance_km")
+            ),
+            row_count=len(validated),
+            valid_time_min_utc=pd.Timestamp(
+                validated["valid_time_utc"].min()
+            ).to_pydatetime(),
+            valid_time_max_utc=pd.Timestamp(
+                validated["valid_time_utc"].max()
+            ).to_pydatetime(),
+            parquet_bytes=parquet_path.stat().st_size,
+            parquet_sha256=sha256_file(parquet_path),
+            ecmwf_client_version=str(
+                _single_value(validated, "ecmwf_client_version")
+            ),
+            eccodes_version=str(_single_value(validated, "eccodes_version")),
+            dataset_url=str(_single_value(validated, "ecmwf_dataset_url")),
+            licence_id="CC-BY-4.0",
+        )
+        validate_manifest(manifest, parquet_path=parquet_path)
+
+        manifest_path = temporary_directory / "manifest.json"
+        manifest_path.write_text(manifest.to_json(), encoding="utf-8")
+        load_and_validate_manifest(
+            manifest_path,
+            parquet_path=parquet_path,
+        )
+
+        final_directory.parent.mkdir(parents=True, exist_ok=True)
+        temporary_directory.replace(final_directory)
+        final_parquet = final_directory / parquet_path.name
+        final_manifest = final_directory / manifest_path.name
+        return ArchiveArtifact(
+            run_directory=final_directory,
+            parquet_path=final_parquet,
+            manifest_path=final_manifest,
+            manifest=manifest,
+        )
+    except Exception:
+        shutil.rmtree(temporary_directory, ignore_errors=True)
+        raise
 
 
 def enumerate_retained_cycles(
