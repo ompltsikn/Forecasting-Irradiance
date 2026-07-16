@@ -73,3 +73,14 @@ def test_workflow_cleans_the_exact_launcher_work_root() -> None:
     assert 'NWP_WORK_ROOT: ${{ runner.temp }}/nwp-archiver-work' in text
     assert 'rm -rf -- "${NWP_WORK_ROOT}"' in text
     assert "nwp-archiver.*" not in text
+
+
+def test_readme_contains_safety_gate_and_ecmwf_attribution() -> None:
+    text = Path("README.md").read_text(encoding="utf-8")
+    assert "NWP_ARCHIVER_ENABLED=false" in text
+    assert "ECMWF" in text
+    assert "CC-BY-4.0" in text
+    assert "issue_time_utc" in text
+    assert "valid_time_utc" in text
+    assert "retrieved_at_utc" in text
+    assert "No forecasting model" in text
