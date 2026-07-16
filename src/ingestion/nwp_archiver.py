@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
+import importlib.metadata
+import json
 import shutil
 import tempfile
 import time
@@ -911,3 +914,287 @@ def normalise_run(
     for column in ("issue_time_utc", "valid_time_utc", "retrieved_at_utc"):
         frame[column] = pd.to_datetime(frame[column], utc=True)
     return canonicalize_nwp_frame(frame)
+
+
+def discover_candidate_cycles(
+    gateway: OpenDataGateway,
+    *,
+    model: NwpModel,
+    mode: SelectionMode,
+    explicit_issue_time_utc: datetime | None = None,
+) -> tuple[datetime, ...]:
+    if explicit_issue_time_utc is not None:
+        if mode in {SelectionMode.CATCHUP, SelectionMode.SCHEDULED}:
+            raise ValueError(
+                "explicit issue time is not allowed for catchup/scheduled"
+            )
+        return (require_utc(explicit_issue_time_utc),)
+    profile_name = (
+        ArchiveProfile.SMOKE
+        if mode is SelectionMode.SMOKE
+        else ArchiveProfile.FULL
+    )
+    latest = discover_latest_issue(
+        gateway,
+        request_profile_for(model, profile_name),
+    )
+    if mode in {SelectionMode.SMOKE, SelectionMode.FULL}:
+        return (latest,)
+    return enumerate_retained_cycles(latest)
+
+
+def archive_issue(
+    *,
+    gateway: OpenDataGateway,
+    site: SitePoint,
+    model: NwpModel,
+    profile_name: ArchiveProfile,
+    issue_time_utc: datetime,
+    work_root: Path,
+    output_root: Path,
+    clock: Callable[[], datetime],
+) -> ArchiveArtifact:
+    profile = request_profile_for(model, profile_name)
+    run = retrieve_explicit_run(
+        gateway,
+        profile,
+        issue_time_utc,
+        work_root,
+        clock=clock,
+    )
+    fields = decode_nearest_site_fields(run, site)
+    ecmwf_version, eccodes_version = _dependency_versions()
+    frame = normalise_run(
+        fields,
+        site=site,
+        profile=profile,
+        retrieved_at_utc=run.retrieved_at_utc,
+        ecmwf_client_source=getattr(gateway, "source", "injected"),
+        ecmwf_client_version=ecmwf_version,
+        eccodes_version=eccodes_version,
+    )
+    actual_parameters = {field.parameter for field in fields}
+    actual_steps = {field.end_step_h for field in fields}
+    received_parameters = tuple(
+        parameter
+        for parameter in profile.parameters
+        if parameter in actual_parameters
+    )
+    received_steps = tuple(
+        step for step in profile.request_steps_h if step in actual_steps
+    )
+    return write_archive_attempt(
+        frame,
+        output_root=output_root,
+        requested_parameters=profile.parameters,
+        requested_steps_h=profile.request_steps_h,
+        received_parameters=received_parameters,
+        received_steps_h=received_steps,
+        smoke=profile_name is ArchiveProfile.SMOKE,
+    )
+
+
+def _dependency_versions() -> tuple[str, str]:
+    ecmwf_version = importlib.metadata.version("ecmwf-opendata")
+    try:
+        from eccodes import codes_get_api_version
+
+        eccodes_version = str(codes_get_api_version())
+    except ImportError:
+        eccodes_version = importlib.metadata.version("eccodes")
+    return ecmwf_version, eccodes_version
+
+
+def _parse_utc(text: str) -> datetime:
+    return require_utc(datetime.fromisoformat(text.replace("Z", "+00:00")))
+
+
+def _write_result_json(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Archive ECMWF Open Data for PLTS-IKN"
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    discover = subparsers.add_parser("discover")
+    discover.add_argument(
+        "--model",
+        choices=[value.value for value in NwpModel],
+        required=True,
+    )
+    discover.add_argument(
+        "--mode",
+        choices=[value.value for value in SelectionMode],
+        required=True,
+    )
+    discover.add_argument("--issue-time-utc")
+    discover.add_argument("--result-json", type=Path, required=True)
+
+    select = subparsers.add_parser("select")
+    select.add_argument(
+        "--mode",
+        choices=[value.value for value in SelectionMode],
+        required=True,
+    )
+    select.add_argument("--candidates-json", type=Path, required=True)
+    select.add_argument("--committed-json", type=Path, required=True)
+    select.add_argument("--result-json", type=Path, required=True)
+
+    archive = subparsers.add_parser("archive")
+    archive.add_argument("--site-config", type=Path, required=True)
+    archive.add_argument(
+        "--model",
+        choices=[value.value for value in NwpModel],
+        required=True,
+    )
+    archive.add_argument(
+        "--profile",
+        choices=[value.value for value in ArchiveProfile],
+        required=True,
+    )
+    archive.add_argument("--issue-time-utc", required=True)
+    archive.add_argument("--work-root", type=Path, required=True)
+    archive.add_argument("--output-root", type=Path, required=True)
+    archive.add_argument("--result-json", type=Path, required=True)
+
+    verify = subparsers.add_parser("verify")
+    verify.add_argument("--manifest", type=Path, required=True)
+    verify.add_argument("--parquet", type=Path, required=True)
+    verify.add_argument(
+        "--expected-source",
+        choices=["ecmwf_ifs", "ecmwf_aifs_single"],
+        required=True,
+    )
+    verify.add_argument(
+        "--expected-model",
+        choices=[value.value for value in NwpModel],
+        required=True,
+    )
+    verify.add_argument("--expected-issue-time-utc", required=True)
+    verify.add_argument("--result-json", type=Path, required=True)
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    arguments = _parser().parse_args(argv)
+    if arguments.command == "select":
+        candidate_text = json.loads(
+            arguments.candidates_json.read_text(encoding="utf-8")
+        )
+        committed_text = json.loads(
+            arguments.committed_json.read_text(encoding="utf-8")
+        )
+        if not isinstance(candidate_text, list) or not isinstance(
+            committed_text, list
+        ):
+            raise ValueError(
+                "candidate and committed JSON inputs must be arrays"
+            )
+        candidates = tuple(_parse_utc(value) for value in candidate_text)
+        committed = {_parse_utc(value) for value in committed_text}
+        selected = select_uncommitted_cycles(
+            candidates,
+            committed,
+            SelectionMode(arguments.mode),
+        )
+        _write_result_json(
+            arguments.result_json,
+            {
+                "selected_issue_times_utc": [
+                    value.isoformat().replace("+00:00", "Z")
+                    for value in selected
+                ]
+            },
+        )
+        return 0
+    if arguments.command == "verify":
+        manifest = load_and_validate_manifest(
+            arguments.manifest,
+            parquet_path=arguments.parquet,
+        )
+        expected_issue = _parse_utc(arguments.expected_issue_time_utc)
+        if (
+            manifest.nwp_source != arguments.expected_source
+            or manifest.nwp_model != arguments.expected_model
+            or manifest.issue_time_utc != expected_issue
+        ):
+            raise ValueError(
+                "verified artifact identity does not match expectation"
+            )
+        _write_result_json(
+            arguments.result_json,
+            {"status": "complete", "manifest": manifest.to_dict()},
+        )
+        return 0
+
+    gateway = EcmwfOpenDataGateway(source="google")
+    if arguments.command == "discover":
+        explicit = (
+            _parse_utc(arguments.issue_time_utc)
+            if arguments.issue_time_utc
+            else None
+        )
+        candidates = discover_candidate_cycles(
+            gateway,
+            model=NwpModel(arguments.model),
+            mode=SelectionMode(arguments.mode),
+            explicit_issue_time_utc=explicit,
+        )
+        profile_name = (
+            ArchiveProfile.SMOKE
+            if arguments.mode == SelectionMode.SMOKE.value
+            else ArchiveProfile.FULL
+        )
+        profile = request_profile_for(
+            NwpModel(arguments.model),
+            profile_name,
+        )
+        _write_result_json(
+            arguments.result_json,
+            {
+                "model": arguments.model,
+                "nwp_source": profile.nwp_source,
+                "mode": arguments.mode,
+                "candidate_issue_times_utc": [
+                    value.isoformat().replace("+00:00", "Z")
+                    for value in candidates
+                ],
+            },
+        )
+        return 0
+
+    artifact = archive_issue(
+        gateway=gateway,
+        site=load_site_point(arguments.site_config),
+        model=NwpModel(arguments.model),
+        profile_name=ArchiveProfile(arguments.profile),
+        issue_time_utc=_parse_utc(arguments.issue_time_utc),
+        work_root=arguments.work_root,
+        output_root=arguments.output_root,
+        clock=lambda: datetime.now(UTC),
+    )
+    _write_result_json(
+        arguments.result_json,
+        {
+            "status": "complete",
+            "run_directory": str(artifact.run_directory),
+            "relative_path": artifact.run_directory.relative_to(
+                arguments.output_root
+            ).as_posix(),
+            "parquet_path": str(artifact.parquet_path),
+            "manifest_path": str(artifact.manifest_path),
+            "manifest": artifact.manifest.to_dict(),
+        },
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
