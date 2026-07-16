@@ -97,6 +97,23 @@ def test_negative_beyond_combined_grib_packing_error_is_rejected() -> None:
         deaccumulate_fields(packed, (12,), "energy")
 
 
+def test_trace_negative_precipitation_below_grib_floor_is_zero() -> None:
+    packed = (
+        field(end=6, value=0.001, units="m"),
+        field(end=12, value=0.001 - 3.90625e-6, units="m"),
+    )
+    assert deaccumulate_fields(packed, (12,), "depth")[12].interval_value == 0.0
+
+
+def test_negative_precipitation_above_grib_floor_is_rejected() -> None:
+    packed = (
+        field(end=6, value=0.001, units="m"),
+        field(end=12, value=0.001 - 4.1e-5, units="m"),
+    )
+    with pytest.raises(AccumulationError, match="negative"):
+        deaccumulate_fields(packed, (12,), "depth")
+
+
 @pytest.mark.parametrize(
     ("start", "end", "step_type", "units", "match"),
     [

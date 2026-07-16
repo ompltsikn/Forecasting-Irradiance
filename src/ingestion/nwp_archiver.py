@@ -32,7 +32,9 @@ from data_contracts.nwp_schema import (
 UTC = timezone.utc
 EARTH_RADIUS_KM = 6371.0088
 SSRD_NEGATIVE_TOLERANCE_JM2 = 1e-6
-PRECIP_NEGATIVE_TOLERANCE_M = 1e-9
+# ECMWF documents GRIB de-accumulation ambiguity and recommends a 0.04 mm
+# threshold for small precipitation totals; retain that conservative floor.
+PRECIP_NEGATIVE_TOLERANCE_M = 4e-5
 ECMWF_DATASET_URL = "https://www.ecmwf.int/en/forecasts/datasets/open-data"
 ECMWF_LICENCE_ID = "CC-BY-4.0"
 IFS_LONG_STEPS_H = tuple(range(0, 145, 3))
