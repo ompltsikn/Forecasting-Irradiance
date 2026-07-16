@@ -10,13 +10,22 @@ from pathlib import Path
 from typing import AbstractSet, Iterable, Literal, Protocol, Sequence
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+import pandas as pd
 import yaml
+
+from data_contracts.nwp_schema import (
+    NWP_COLUMNS,
+    NWP_SCHEMA_VERSION,
+    canonicalize_nwp_frame,
+)
 
 
 UTC = timezone.utc
 EARTH_RADIUS_KM = 6371.0088
 SSRD_NEGATIVE_TOLERANCE_JM2 = 1e-6
 PRECIP_NEGATIVE_TOLERANCE_M = 1e-9
+ECMWF_DATASET_URL = "https://www.ecmwf.int/en/forecasts/datasets/open-data"
+ECMWF_LICENCE_ID = "CC-BY-4.0"
 
 
 class SiteConfigError(ValueError):
@@ -554,3 +563,208 @@ def decode_nearest_site_fields(
     if len(coordinates) != 1:
         raise GribDecodeError("grid coordinates changed within retrieved run")
     return fields
+
+
+def validate_field_completeness(
+    fields: Sequence[DecodedField],
+    profile: RequestProfile,
+) -> None:
+    expected = {
+        (parameter, step)
+        for parameter in profile.parameters
+        for step in profile.request_steps_h
+    }
+    actual_pairs = [(field.parameter, field.end_step_h) for field in fields]
+    seen: set[tuple[str, int]] = set()
+    duplicates: set[tuple[str, int]] = set()
+    for pair in actual_pairs:
+        if pair in seen:
+            duplicates.add(pair)
+        seen.add(pair)
+    if duplicates:
+        raise ValueError(f"duplicate parameter/step fields: {sorted(duplicates)}")
+    actual = set(actual_pairs)
+    missing = expected - actual
+    unexpected = actual - expected
+    if missing:
+        raise ValueError(f"missing required parameter/step fields: {sorted(missing)}")
+    if unexpected:
+        raise ValueError(f"unexpected parameter/step fields: {sorted(unexpected)}")
+
+
+def _field_index(
+    fields: Sequence[DecodedField],
+) -> dict[tuple[str, int], DecodedField]:
+    return {(field.parameter, field.end_step_h): field for field in fields}
+
+
+def _instant(
+    index: Mapping[tuple[str, int], DecodedField],
+    parameter: str,
+    step: int,
+) -> DecodedField | None:
+    return index.get((parameter, step))
+
+
+def _temperature_c(field: DecodedField | None) -> float | None:
+    if field is None:
+        return None
+    if field.units != "K":
+        raise ValueError(f"{field.parameter} units must be K, got {field.units}")
+    return field.value - 273.15
+
+
+def _cloud_fraction(field: DecodedField | None) -> float | None:
+    if field is None:
+        return None
+    compact = field.units.replace(" ", "").lower()
+    if compact in {"(0-1)", "1", "fraction", "proportion"}:
+        value = field.value
+    elif compact in {"%", "percent", "percentage"}:
+        value = field.value / 100.0
+    else:
+        raise ValueError(
+            f"{field.parameter} cloud units are unsupported: {field.units}"
+        )
+    if not 0.0 <= value <= 1.0:
+        raise ValueError(f"{field.parameter} cloud fraction outside [0, 1]")
+    return value
+
+
+def _value_with_units(
+    field: DecodedField | None,
+    accepted_compact_units: set[str],
+) -> float | None:
+    if field is None:
+        return None
+    compact = field.units.replace(" ", "").lower()
+    if compact not in accepted_compact_units:
+        raise ValueError(f"{field.parameter} units are unsupported: {field.units}")
+    return field.value
+
+
+def normalise_run(
+    fields: Sequence[DecodedField],
+    *,
+    site: SitePoint,
+    profile: RequestProfile,
+    retrieved_at_utc: datetime,
+    ecmwf_client_source: str,
+    ecmwf_client_version: str,
+    eccodes_version: str,
+) -> pd.DataFrame:
+    retrieved = require_utc(retrieved_at_utc)
+    validate_field_completeness(fields, profile)
+    issues = {field.issue_time_utc for field in fields}
+    coordinates = {(field.grid_latitude, field.grid_longitude) for field in fields}
+    if len(issues) != 1:
+        raise ValueError("fields contain multiple issue times")
+    if len(coordinates) != 1:
+        raise ValueError("fields contain multiple grid coordinates")
+    issue = require_utc(next(iter(issues)))
+    grid_latitude, grid_longitude = next(iter(coordinates))
+    distance = haversine_km(
+        site.latitude_deg,
+        site.longitude_deg,
+        grid_latitude,
+        grid_longitude,
+    )
+    if distance > 25.0:
+        raise ValueError(
+            f"nearest ECMWF grid point is too far away: {distance:.3f} km"
+        )
+    index = _field_index(fields)
+    ssrd = deaccumulate_fields(
+        (index[("ssrd", step)] for step in profile.request_steps_h),
+        profile.output_steps_h,
+        "energy",
+    )
+    tp = (
+        deaccumulate_fields(
+            (index[("tp", step)] for step in profile.request_steps_h),
+            profile.output_steps_h,
+            "depth",
+        )
+        if "tp" in profile.parameters
+        else {}
+    )
+    cp = (
+        deaccumulate_fields(
+            (index[("cp", step)] for step in profile.request_steps_h),
+            profile.output_steps_h,
+            "depth",
+        )
+        if "cp" in profile.parameters
+        else {}
+    )
+    rows: list[dict[str, object]] = []
+    for step in profile.output_steps_h:
+        ssrd_field = index[("ssrd", step)]
+        tp_result = tp.get(step)
+        cp_result = cp.get(step)
+        sp = _value_with_units(_instant(index, "sp", step), {"pa"})
+        row = {
+            "site_id": site.site_id,
+            "nwp_provider": "ecmwf_opendata",
+            "nwp_source": profile.nwp_source,
+            "nwp_model": profile.model.value,
+            "issue_time_utc": issue,
+            "valid_time_utc": issue + timedelta(hours=step),
+            "retrieved_at_utc": retrieved,
+            "lead_time_min": step * 60,
+            "ssrd_wm2": ssrd_mean_wm2(ssrd[step]),
+            "ssrd_accum_jm2": ssrd[step].raw_value,
+            "ssrd_interval_jm2": ssrd[step].interval_value,
+            "ssrd_interval_seconds": ssrd[step].interval_seconds,
+            "ssrd_conversion_method": ssrd[step].method,
+            "grib_start_step_h": ssrd_field.start_step_h,
+            "grib_end_step_h": ssrd_field.end_step_h,
+            "grib_step_type": ssrd_field.step_type,
+            "tcc_frac": _cloud_fraction(_instant(index, "tcc", step)),
+            "lcc_frac": _cloud_fraction(_instant(index, "lcc", step)),
+            "mcc_frac": _cloud_fraction(_instant(index, "mcc", step)),
+            "hcc_frac": _cloud_fraction(_instant(index, "hcc", step)),
+            "t2m_c": _temperature_c(_instant(index, "2t", step)),
+            "d2m_c": _temperature_c(_instant(index, "2d", step)),
+            "u10_ms": _value_with_units(
+                _instant(index, "10u", step),
+                {"ms**-1", "ms-1", "m/s"},
+            ),
+            "v10_ms": _value_with_units(
+                _instant(index, "10v", step),
+                {"ms**-1", "ms-1", "m/s"},
+            ),
+            "tp_accum_m": None if tp_result is None else tp_result.raw_value,
+            "tp_interval_m": None if tp_result is None else tp_result.interval_value,
+            "tp_mm": None if tp_result is None else precipitation_mm(tp_result),
+            "sp_pa": sp,
+            "sp_hpa": None if sp is None else sp / 100.0,
+            "tcwv_kgm2": _value_with_units(
+                _instant(index, "tcwv", step),
+                {"kgm**-2", "kgm-2", "kg/m2"},
+            ),
+            "cp_accum_m": None if cp_result is None else cp_result.raw_value,
+            "cp_interval_m": None if cp_result is None else cp_result.interval_value,
+            "cp_mm": None if cp_result is None else precipitation_mm(cp_result),
+            "mucape_jkg": _value_with_units(
+                _instant(index, "mucape", step),
+                {"jkg**-1", "jkg-1", "j/kg"},
+            ),
+            "site_latitude": site.latitude_deg,
+            "site_longitude": site.longitude_deg,
+            "grid_latitude": grid_latitude,
+            "grid_longitude": grid_longitude,
+            "grid_distance_km": distance,
+            "grid_selection_method": "nearest",
+            "ecmwf_client_source": ecmwf_client_source,
+            "ecmwf_client_version": ecmwf_client_version,
+            "eccodes_version": eccodes_version,
+            "schema_version": NWP_SCHEMA_VERSION,
+            "ecmwf_dataset_url": ECMWF_DATASET_URL,
+            "licence_id": ECMWF_LICENCE_ID,
+        }
+        rows.append(row)
+    frame = pd.DataFrame(rows).reindex(columns=NWP_COLUMNS)
+    for column in ("issue_time_utc", "valid_time_utc", "retrieved_at_utc"):
+        frame[column] = pd.to_datetime(frame[column], utc=True)
+    return canonicalize_nwp_frame(frame)
