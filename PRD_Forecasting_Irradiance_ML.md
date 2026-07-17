@@ -15,7 +15,7 @@
 | Field | Value |
 |---|---|
 | Document ID | PRD-IRRAD-FCST-001 |
-| Version | 1.0 (initial issue) |
+| Version | 1.1 (Sprint 0 execution status) |
 | Status | Draft for stakeholder review |
 | Product | Multi-Horizon Probabilistic Irradiance Forecasting System |
 | Programme | PLTS Analytics Platform — Module M1 |
@@ -29,6 +29,7 @@
 | Ver | Date | Change |
 |---|---|---|
 | 1.0 | — | Initial issue. Audit of source document; architecture, requirements, roadmap. |
+| 1.1 | 2026-07-17 | Added the evidence-backed Sprint 0 execution ledger. No product requirement or acceptance criterion changed. |
 
 ### 1.2 Sign-off Required Before Phase 1
 
@@ -2255,6 +2256,22 @@ Sequence models · TFT / NHITS · satellite · array-as-sensor · NWP *modelling
 | 5 | **Historical coverage audit.** How many months? Which seasons? What is the gap profile? Where are the maintenance periods? | `docs/phase0_data_audit.md` | Settles OD-8, and determines whether Tier 2/3 is even worth attempting |
 | 6 | **Repo skeleton + CI + the leakage harness.** | Green CI on an empty pipeline | **Write the test that makes the whole project safe *before* writing the code that could break it** |
 | 7 | **Escalate OD-1 (the data path) to OT security.** | A meeting, and a written answer | The long pole. It will not resolve itself, and it gates the entire nowcast scope. |
+
+### 42.5 Sprint 0 Execution Status — 2026-07-17
+
+> **Operational snapshot:** 2026-07-17 05:55 UTC. Status legend: ✅ complete · 🟡 in progress · ⏭️ ready to start · ⬜ not started. A task receives ✅ only when its stated deliverable and acceptance evidence both exist.
+
+| ID | Status | Progress and evidence | Remaining before ✅ |
+|---|---|---|---|
+| **S0-1** | 🟡 **In progress — implementation and activation complete** | `src/ingestion/nwp_archiver.py`, the NWP data contract, and the active hourly GitHub Actions workflow archive IFS + AIFS into Parquet with separate `issue_time_utc`, `valid_time_utc`, and `retrieved_at_utc`. Local suite: **117 passed**. Canonical runs: [smoke 29555679350](https://github.com/ompltsikn/Forecasting-Irradiance/actions/runs/29555679350), [full 29556061061](https://github.com/ompltsikn/Forecasting-Irradiance/actions/runs/29556061061), and [catch-up 29556390690](https://github.com/ompltsikn/Forecasting-Irradiance/actions/runs/29556390690) all succeeded. The Shared Drive contains **11 IFS + 11 AIFS production issue cycles**, each with a Parquet/manifest pair. `NWP_ARCHIVER_ENABLED=true`; destination is `gdrive:nwp`. | Observe and verify **two successive ECMWF issue cycles written by scheduled events after the Shared Drive cutover/enable at 2026-07-17 05:40 UTC**. Pre-cutover scheduled runs and manual catch-up do not satisfy this final observation gate. |
+| **S0-2** | ⏭️ **Ready to start next** | Input inventory is available: **145 readable ZIPs**, **170 CSV entries**, **163 populated CSVs**, **7 empty CSVs**, and **136 unique SCADA tags** across EMI01–EMI05. EMI05 aliases are confirmed: `Total Irradiance` → GHI and `Daily Radiation` → GHI Daily Acummulation. | Produce `docs/phase0_cov_characterisation.md`; quantify per-tag deadband, inter-arrival p50/p90/p99, maximum gap, and heartbeat/max-report-time; explicitly report the 7 empty CSV exceptions; set a data-backed `canonical_freq`. |
+| **S0-3** | ⬜ **Not started** | GHI, DHI, and DNI·cosZ raw inputs are available, but the historical residual test has not been run. | Produce the residual/zenith plot and set `sensor_metadata.is_derived_tag` from the result. |
+| **S0-4** | 🟡 **Partially characterised** | The product owner has supplied coordinates, mean elevation, WITA timezone, fixed-tilt racking, 10° tilt, 0° azimuth, POA co-planarity, row dimensions, module-height ranges, no-albedometer status, sensor families, and source datasheets/workbooks. The current repository config contains only latitude, longitude, elevation, and timezone. | Consolidate the supplied facts into complete `site_configuration` and `sensor_metadata`; calculate/record GCR and bifaciality from the drawings/specifications; record RSI positions and per-sensor manufacturer/model/serial/class/calibration date, due date, and factor. Every remaining null needs a named owner and date. |
+| **S0-5** | ⬜ **Not started** | Historical ZIPs are available, but coverage, gaps, maintenance/outage/curtailment periods, and empirical cloud-regime seasonality have not been computed. | Produce `docs/phase0_data_audit.md` and derive monthly `k_c`, `k_c` variability, and rule-based regime distributions from the site data. Do not impose a textbook monsoon calendar. |
+| **S0-6** | 🟡 **Partially complete** | Repository skeleton and NWP-focused unit/integration/leakage tests exist; the current local suite is green at **117 passed**. | Add general CI for the repository and the required `tests/leakage/test_no_future_leakage.py`; obtain a green CI run on the empty forecasting pipeline. The NWP workflow alone is not the Sprint 0 CI/leakage deliverable. |
+| **S0-7** | ⬜ **Not started / decision pending** | Manual SCADA export is known as the current offline path. No written OT-security decision or decision date is recorded. | Hold/escalate the OT-security conversation and record the achievable production data path, cadence, latency, owner, and decision date. |
+
+**Gate status:** M0 is **not passed**; none of the seven Sprint 0 tasks yet meets its full acceptance evidence. **S0-2 is GO now** and should run in parallel while the S0-1 observation gate accrues. This is not permission to start Phase 1 or any model.
 
 **Explicitly not in Sprint 0:** any model. Not even a persistence baseline.
 

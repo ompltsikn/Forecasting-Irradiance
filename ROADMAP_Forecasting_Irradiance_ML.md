@@ -283,6 +283,22 @@ Each gate is a **go/no-go**, not a status update. A gate that everyone passes is
 | **S0-6** | **Repo skeleton + CI + the leakage harness.** | Green CI on an empty pipeline; `tests/leakage/test_no_future_leakage.py` | 0.5 wk | ML Eng | **Write the test that makes the project safe *before* the code that could break it.** |
 | **S0-7** | **Escalate OD-1 to OT security.** A meeting, and a written answer on what data path is achievable and at what cadence/latency. | A written decision, or a date for one | 0.1 wk | Product | **Phase 4 servability. Longest lead time in the programme. Start it now.** |
 
+### 7.0.1 Execution status — 2026-07-17
+
+> **Snapshot:** 2026-07-17 05:55 UTC. Legend: ✅ complete · 🟡 in progress · ⏭️ ready to start · ⬜ not started. Green means the deliverable **and** its acceptance evidence exist; it does not mean “the code was written.”
+
+| ID | Status | Verified progress | Remaining gate / next action |
+|---|---|---|---|
+| **S0-1** | 🟡 **Implementation and activation complete; final observation pending** | IFS + AIFS archiver, NWP schema, hourly GitHub Actions workflow, and three separate UTC timestamps are implemented. **117 local tests pass**. Manual smoke, full, and catch-up runs succeeded. The Shared Drive has **11 IFS + 11 AIFS production issue cycles** with paired Parquet/manifests. Scheduler is enabled at `gdrive:nwp`. | Verify two successive ECMWF issue cycles produced by `schedule` after the Shared Drive cutover/enable at **2026-07-17 05:40 UTC**. Older scheduled runs and manual catch-up are evidence of functionality, not this post-cutover observation gate. |
+| **S0-2** | ⏭️ **Ready — start now** | Raw inventory: **145 readable ZIPs**, **170 CSV entries**, **163 populated**, **7 empty**, **136 unique tags**, EMI01–EMI05 recognised. EMI05 aliases are confirmed. | Characterise COV per tag, report empty-file exceptions, publish `docs/phase0_cov_characterisation.md`, and choose `canonical_freq` from measured inter-arrival/deadband evidence. |
+| **S0-3** | ⬜ **Not started** | GHI, DHI, and DNI·cosZ history is available. | Run the residual-versus-zenith test, publish one plot, and set `sensor_metadata.is_derived_tag`. |
+| **S0-4** | 🟡 **Partial** | Core site facts and specification sources have been supplied; only lat/lon/elevation/timezone are currently in repository config. | Populate complete `site_configuration` + `sensor_metadata`, including calculated/recorded GCR and bifaciality, RSI mounting, sensor serial/class/calibration data, and owner/date for each remaining null. |
+| **S0-5** | ⬜ **Not started** | Historical raw files are available. | Audit coverage/gaps/outages/curtailment and derive the site's monthly `k_c`, variability, and regime distributions; publish `docs/phase0_data_audit.md`. |
+| **S0-6** | 🟡 **Partial** | Repository skeleton and NWP-specific test suite exist; **117 tests pass locally**. | Add general CI plus `tests/leakage/test_no_future_leakage.py`, then record a green CI run. |
+| **S0-7** | ⬜ **Not started / unresolved** | The current offline/manual SCADA export path is understood. | Obtain a written OT-security decision—or a named owner and decision date—covering achievable production path, cadence, and latency. |
+
+**Gate decision:** M0 is **not passed (0/7 fully accepted)**. **GO for S0-2 now**, in parallel with the S0-1 observation window. **NO-GO for Phase 1 and for any model.**
+
 > ### Do not assume Indonesia's monsoon calendar. Measure it.
 >
 > "Wet season = November–March" is **wrong for large parts of Indonesia.** The archipelago has (at least) three distinct rainfall regimes: **monsoonal** (Java, Nusa Tenggara, southern Kalimantan — one wet peak around Dec–Feb), **equatorial** (Sumatra, central Kalimantan — *two* rainfall peaks per year), and **anti-monsoonal / local** (parts of Maluku — wettest in **June–August**, the exact inverse).
@@ -722,7 +738,7 @@ gantt
     OD-10 data residency (Legal)         :od10, 2026-07-20, 90d
 
     section Track A - ENGINEERING
-    Sprint 0 - Discovery                 :done, s0, 2026-07-20, 14d
+    Sprint 0 - Discovery                 :s0, 2026-07-20, 14d
     Gate M0                              :milestone, m0, 2026-08-03, 0d
     P1a COV resampler + QC               :p1a, 2026-08-03, 21d
     P1b Physics layer                    :p1b, after p1a, 14d
@@ -935,3 +951,4 @@ That is not a failure of ambition. It is the recognition that on a project like 
 | Ver | Date | Change | Approved by |
 |---|---|---|---|
 | 1.0 | — | Initial issue. Derived from PRD §37, expanded with dependency graph, three-track model, gates M0–M6, contingency branches BR-01…BR-08, roadmap risks RR-01…RR-09, and the recommended execution re-ordering (§15). | *pending* |
+| 1.1 | 2026-07-17 | Added the evidence-backed Sprint 0 execution ledger and explicit S0-2 GO / Phase-1 NO-GO decision. No phase scope, estimate, or gate criterion changed. | *pending* |

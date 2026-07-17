@@ -937,23 +937,28 @@ deployment:
 | Field | Value |
 |---|---|
 | **Current phase** | **Phase 0 — Discovery & Data Audit** |
-| **Completed** | PRD issued · Master Context issued · source document audited |
-| **In progress** | *(nothing yet — Sprint 0 not started)* |
-| **Blocked** | **OD-1** (real-time data path — awaiting OT security) · **OD-4** (racking type / tilt / azimuth) · **OD-8** (historical coverage) · **OD-11** (internet egress for NWP) |
+| **Completed evidence** | PRD, Master Context, and Roadmap issued · source document audited · S0-1 implementation, tests, manual smoke/full/catch-up, Shared Drive cutover, and scheduler activation complete (the S0-1 task itself remains open pending its observation gate) |
+| **In progress** | **S0-1** post-cutover scheduled-cycle observation · **S0-4** metadata consolidation · **S0-6** general CI/leakage harness completion |
+| **Ready next** | **S0-2 COV characterisation — GO now**, in parallel with S0-1 observation |
+| **Blocked / unresolved** | **OD-1 / S0-7** (no written OT-security data-path decision or dated commitment) |
 | **Next milestone** | **Sprint 0 complete:** NWP archiver running · COV characterised · `dni_cosz` derived-vs-measured settled · site metadata populated · historical coverage audited · CI + leakage harness green |
 | **Open decisions** | OD-1 … OD-13 (PRD §39) |
 
 ### 18.1 Sprint 0 checklist
 
-| # | Task | Status | Owner |
-|---|---|---|---|
-| 1 | **Start the NWP archiver** (ECMWF Open Data → Parquet, every cycle) — **do this first; the upstream archive is only ~2–3 days deep and every day lost is lost forever** | ☐ | Data Eng |
-| 2 | COV characterisation → `docs/phase0_cov_characterisation.md`; set a **justified** `canonical_freq` | ☐ | Data Eng |
-| 3 | The `dni_cosz` test: is `GHI − DHI − DNI·cosZ` ≈ 0 to machine precision? → `sensor_metadata.is_derived_tag` | ☐ | Perf Eng |
-| 4 | Site metadata audit → populate `site_configuration` + `sensor_metadata` | ☐ | Perf Eng / O&M |
-| 5 | Historical coverage audit → `docs/phase0_data_audit.md` | ☐ | Data Eng |
-| 6 | Repo skeleton + CI + **the leakage harness** | ☐ | ML Eng |
-| 7 | Escalate OD-1 (data path) to OT security | ☐ | Product |
+> **Snapshot:** 2026-07-17 05:55 UTC. Legend: ✅ complete · 🟡 in progress · ⏭️ ready to start · ⬜ not started. Do not promote 🟡 to ✅ on implementation evidence alone when an operational acceptance gate remains.
+
+| # | Task | Status | Evidence, gap, and next action | Owner |
+|---|---|---|---|---|
+| **S0-1** | **Start the NWP archiver** (ECMWF Open Data → Parquet, every cycle) | 🟡 **Implementation/activation complete; observation open** | Code, schema, active workflow, **117 passing tests**, successful smoke/full/catch-up, and **11 IFS + 11 AIFS** production issue cycles in the Shared Drive are verified. The schema keeps `issue_time_utc`, `valid_time_utc`, and `retrieved_at_utc` separate. Scheduler gate is `true` and destination is `gdrive:nwp`. **Still required:** two successive issue cycles written by scheduled events after the 2026-07-17 05:40 UTC cutover/enable. | Data Eng |
+| **S0-2** | COV characterisation → `docs/phase0_cov_characterisation.md`; set a **justified** `canonical_freq` | ⏭️ **Ready / GO now** | **145 ZIPs / 170 CSV entries** are readable; 163 CSVs contain data, 7 are empty, and 136 unique tags cover EMI01–EMI05. Compute deadband, p50/p90/p99 inter-arrival, maximum gap, and heartbeat per tag; document empty-file exceptions; derive `canonical_freq` from those measurements. | Data Eng |
+| **S0-3** | The `dni_cosz` test: is `GHI − DHI − DNI·cosZ` ≈ 0 to machine precision? → `sensor_metadata.is_derived_tag` | ⬜ **Not started** | Required channels exist, but no historical residual/zenith plot or metadata boolean exists yet. | Perf Eng |
+| **S0-4** | Site metadata audit → populate `site_configuration` + `sensor_metadata` | 🟡 **Partial** | Coordinates, elevation, timezone, fixed tilt, tilt/azimuth, POA co-planarity, row geometry, height ranges, no-albedometer status, sensor families, and source specifications were supplied. Repository config currently contains only lat/lon/elevation/timezone. Consolidate all supplied facts; calculate/record GCR and bifaciality; enter RSI mounting and per-sensor class/serial/calibration details; assign owner/date to every null. | Perf Eng / O&M |
+| **S0-5** | Historical coverage audit → `docs/phase0_data_audit.md` | ⬜ **Not started** | Raw history exists, but coverage, gaps, maintenance/outage/curtailment intervals, and empirical monthly `k_c`/regime distributions have not been derived. Never substitute an assumed Indonesian monsoon calendar. | Data Eng |
+| **S0-6** | Repo skeleton + CI + **the leakage harness** | 🟡 **Partial** | Skeleton and NWP-specific tests are green (**117 passed**). General CI and required `tests/leakage/test_no_future_leakage.py` are absent; add them and obtain a green CI run. | ML Eng |
+| **S0-7** | Escalate OD-1 (data path) to OT security | ⬜ **Not started / unresolved** | Manual SCADA export is known, but no written production path/cadence/latency decision or dated decision commitment is recorded. | Product |
+
+**M0 remains open: 0/7 tasks are fully accepted. S0-2 may start; Phase 1 and all modelling may not.**
 
 > **No model is built in Sprint 0. Not even persistence.**
 > The most common failure mode in projects like this is to start with LightGBM on whatever CSV is lying around, and discover four months later that the timestep was fiction, the DNI channel was derived, and the array is on trackers.
@@ -1137,5 +1142,6 @@ These are the specific defects found in the source document (`Forecasting_Irradi
 | Ver | Date | Change | Approved by |
 |---|---|---|---|
 | 1.0 | — | Initial issue. Canonical facts CF-01…CF-14. ADR-001…ADR-018. | *pending* |
+| 1.1 | 2026-07-17 | Updated the living Sprint 0 status board with verified repository, GitHub Actions, Shared Drive, raw-data inventory, and remaining gate evidence. No Canonical Fact or ADR changed. | *pending* |
 
 > **To change a Canonical Fact (§2) or an accepted ADR (§5): open a decision, record the rationale, update this table, and update every affected document, diagram, test and code path in the same change. There is no partial update.**
