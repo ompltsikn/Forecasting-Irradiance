@@ -394,7 +394,7 @@ The committed output directory contains at least:
 | `figures/timestamp_daylight_alignment.png` | Hour-of-day irradiance activity evidence |
 | `figures/gap_heartbeat_evidence.png` | Maximum-gap and heartbeat support summary |
 
-Tables are sorted by stable identity keys, floats use fixed documented formatting, JSON keys are sorted, and plots use fixed dimensions/style. Artifact hashes exclude no content. Re-running on the same source bytes, code, and config produces byte-stable analytical tables and plots; notebook display timestamps are not part of the committed artifacts.
+Tables are sorted by stable identity keys, floats use fixed documented formatting, JSON keys are sorted, and plots use fixed dimensions/style. `run_manifest.json` records the SHA-256 of every other committed artifact; the manifest's own SHA-256 is reported by the CLI and release verification to avoid an impossible self-referential hash. Re-running on the same source bytes, code, and config produces byte-stable analytical tables and plots; notebook display timestamps are not part of the committed artifacts.
 
 `docs/phase0_cov_characterisation.md` is rendered from those same tables and includes:
 
