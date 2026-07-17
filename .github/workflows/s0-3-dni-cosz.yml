@@ -33,12 +33,15 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements-cov.txt
+          cache-dependency-path: |
+            requirements-nwp.txt
+            requirements-cov.txt
 
       - name: Install and verify S0-3 code
         shell: bash
         run: |
           set -Eeuo pipefail
+          python -m pip install --disable-pip-version-check -r requirements-nwp.txt
           python -m pip install --disable-pip-version-check -r requirements-cov.txt
           python -m pytest -q
 

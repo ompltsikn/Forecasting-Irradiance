@@ -33,6 +33,8 @@ def test_full_history_workflow_verifies_both_source_inventories() -> None:
 
 def test_full_history_workflow_runs_strict_library_cli_and_excludes_raw_uploads() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
+    assert "requirements-nwp.txt" in text
+    assert "requirements-cov.txt" in text
     assert "python -m src.characterisation.dni_cosz_cli" in text
     assert "--diagnostic" not in text
     upload_start = text.index("actions/upload-artifact@")
