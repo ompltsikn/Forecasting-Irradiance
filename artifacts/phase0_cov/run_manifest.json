@@ -1,0 +1,48 @@
+{
+  "artifact_schema_version": 1,
+  "artifact_sha256": {
+    "canonical_frequency_decision.json": "be0f16f1aee2a0ecafd6e220c646aefd2ec786626cb9b45d0eb6762b60288eff",
+    "canonical_frequency_evidence.csv": "c6e7c35d459685e9950bf0597091e0254dcc61c37f9867d12e33912a3d89e94b",
+    "empty_csv_entries.csv": "ffdd323abd030b87a53dbcb5de679f80aadd56b8c6ad0adcbfd0fbd4c5eba61f",
+    "figures/canonical_frequency_evidence.png": "6d6bcecf71203bd326f97843311a0f3f40015518d4ea1293934379e33d6bf33f",
+    "figures/deadband_instantaneous.png": "c739d8b927e5bf584a57c4314b9a3e11b400bae9d427609b9307ff3a619e6349",
+    "figures/gap_heartbeat_evidence.png": "c2790ed097e8b9f88078677e5e8c575bc9664c05682a766745148940dd7c8b93",
+    "figures/interarrival_instantaneous.png": "49e67edd3685f1e6b8b9bd209b47d7eb5c8e443b524a6901c390da0180339a8c",
+    "figures/timestamp_daylight_alignment.png": "000765f4faa836acfb4e69867b9c8e150796217b77856d0a8d801d9344f897d0",
+    "inventory_reconciliation.csv": "b203b3a8d741f02665c4f95a1b33e9ec59a2c25d0396804437a318aeda973618",
+    "phase0_cov_characterisation.md": "817a0a925b9cb333f90a89da0ecbbd4e8dbe41a4bf64007aa8cbd700ac8d26bf",
+    "row_exceptions.csv": "e2be817afd83cf1567a658febf33e5d5737abbfe5f8b1152a61e8902d6c0966a",
+    "source_manifest.csv": "65a8f02b27f69713bfaed83b3fa09a3453f73c850343a6981ddf4ee4e45d0998",
+    "tag_characterisation.csv": "1cd9860dedd8bb705eace056585a7c74b279ade905a4c94417aa95e79f25c554",
+    "timestamp_audit.csv": "5781f17d6a14f9bb0e30f3820c7eea6aadc611621030e3b4f01e26a16a29ca82"
+  },
+  "characterisation_schema_version": 1,
+  "counts": {
+    "csv_entry_count": 170,
+    "empty_csv_count": 7,
+    "event_count_after_integrity": 2640992,
+    "exact_duplicate_count": 15239,
+    "row_exception_count": 0,
+    "tag_count": 136,
+    "timestamp_conflict_count": 0,
+    "zip_count": 145
+  },
+  "decision": {
+    "canonical_freq": "1min",
+    "canonical_seconds": 60.0,
+    "channel_medians_s": {
+      "DHI": 21.5345,
+      "DNIcosZ": 23.136,
+      "GHI": 23.12,
+      "POA": 18.1915,
+      "RSI": 26.401
+    },
+    "decision_statistic_s": 26.401,
+    "exception_tag_count": 1,
+    "supported_tag_count": 18,
+    "unresolved_reason": null
+  },
+  "input_set_sha256": "58ff83e89f09f5844a6109c3352d6ecad3820121da5cfb33878b66212f092582",
+  "strict_errors": [],
+  "strict_status": "passed"
+}

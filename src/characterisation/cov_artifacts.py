@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Iterable
@@ -304,6 +305,7 @@ def _plot_gap_heartbeat(tag_stats: pd.DataFrame, path: Path) -> None:
     figure, axis = _new_figure("Maximum active gaps and heartbeat evidence")
     data = _stable_table(_instantaneous(tag_stats), ("full_tag",))
     plotted = False
+    heartbeat_plotted = False
     if "max_active_gap_s" in data:
         gaps = pd.to_numeric(data["max_active_gap_s"], errors="coerce")
         mask = gaps.notna()
@@ -323,6 +325,7 @@ def _plot_gap_heartbeat(tag_stats: pd.DataFrame, path: Path) -> None:
         mask = heartbeat.notna()
         if mask.any():
             plotted = True
+            heartbeat_plotted = True
             axis.scatter(
                 np.flatnonzero(mask.to_numpy()),
                 heartbeat.loc[mask],
@@ -337,6 +340,16 @@ def _plot_gap_heartbeat(tag_stats: pd.DataFrame, path: Path) -> None:
         axis.set_xlabel("Instantaneous tag (stable order)")
         axis.set_ylabel("Seconds (log scale)")
         axis.legend(loc="best")
+        if not heartbeat_plotted:
+            axis.text(
+                0.01,
+                0.02,
+                "heartbeat: insufficient evidence",
+                transform=axis.transAxes,
+                ha="left",
+                va="bottom",
+                color="#555555",
+            )
     _save_figure(figure, path)
 
 
@@ -359,6 +372,58 @@ def _markdown_table(frame: pd.DataFrame, columns: list[str]) -> str:
     for row in frame[selected].itertuples(index=False, name=None):
         lines.append("| " + " | ".join(_markdown_value(value) for value in row) + " |")
     return "\n".join(lines)
+
+
+def _daylight_evidence(events: pd.DataFrame) -> str:
+    required = {"parameter_class", "event_time", "value"}
+    if not required.issubset(events.columns):
+        return "Insufficient event fields for an hour-of-day diagnostic."
+    active = events.loc[
+        (events["parameter_class"] == "instantaneous_irradiance")
+        & (pd.to_numeric(events["value"], errors="coerce").abs() > 5.0),
+        "event_time",
+    ]
+    if active.empty:
+        return "No supported non-flat irradiance events for an hour-of-day diagnostic."
+    hours = pd.to_datetime(active).dt.hour.to_numpy(dtype="int64")
+    hourly_counts = pd.Series(hours).value_counts().sort_index()
+    substantial_threshold = max(20, int(math.ceil(float(hourly_counts.max()) * 0.01)))
+    substantial_hours = hourly_counts.loc[
+        hourly_counts >= substantial_threshold
+    ].index.to_numpy(dtype="int64")
+    if substantial_hours.size == 0:
+        substantial_hours = hourly_counts.index.to_numpy(dtype="int64")
+    substantial_mask = np.isin(hours, substantial_hours)
+    substantial_event_hours = hours[substantial_mask]
+    outlier_count = int((~substantial_mask).sum())
+    start_hour = int(np.min(substantial_hours))
+    end_hour = int(np.max(substantial_hours))
+    local_hours_if_utc = (substantial_event_hours + 8) % 24
+    shifted_start = (start_hour + 8) % 24
+    shifted_end = (end_hour + 8) % 24
+    as_recorded_daylight = bool(
+        np.all((substantial_event_hours >= 5) & (substantial_event_hours <= 19))
+    )
+    shifted_night_share = float(
+        np.mean((local_hours_if_utc < 5) | (local_hours_if_utc > 19))
+    )
+    if as_recorded_daylight:
+        conclusion = "The distribution is consistent with naive WITA"
+    else:
+        conclusion = "The distribution does not establish naive WITA"
+    comparison = (
+        "and the UTC interpretation places observed activity into local night hours"
+        if shifted_night_share > 0
+        else "but the limited window does not independently reject a UTC interpretation"
+    )
+    return (
+        f"Substantial non-flat irradiance occurs from {start_hour:02d}:00-{end_hour:02d}:00 "
+        f"as recorded (hour count at least max(20, 1% of the peak)); there are "
+        f"{outlier_count} non-flat events outside that window. {conclusion}; interpreting "
+        "the same clock as UTC would move "
+        f"the window to {shifted_start:02d}:00-{shifted_end:02d}:00 WITA, {comparison}. "
+        "This is consistency evidence, not a historian clock/configuration record."
+    )
 
 
 def _render_report(bundle: CovArtifactBundle) -> str:
@@ -390,6 +455,7 @@ def _render_report(bundle: CovArtifactBundle) -> str:
         else 0
     )
     decision_text = bundle.decision.canonical_freq or "unresolved"
+    daylight_evidence = _daylight_evidence(bundle.ingestion.events)
     blockers = []
     if bundle.strict_errors:
         blockers.append("strict source-integrity errors remain")
@@ -472,6 +538,8 @@ The second CSV **header name** is the full SCADA tag. The second field in each d
 Observed timestamp shapes: **{', '.join(timestamp_shapes) if timestamp_shapes else 'none'}**.
 
 Naive timestamps are preserved as recorded. No UTC conversion is applied. Hour-of-day irradiance activity is used only to assess consistency with the site clock (Asia/Makassar/WITA); it does not substitute for historian clock/configuration evidence.
+
+{daylight_evidence}
 
 ## Methods
 

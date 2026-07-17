@@ -1,0 +1,15 @@
+{
+  "canonical_freq": "1min",
+  "canonical_seconds": 60.0,
+  "channel_medians_s": {
+    "DHI": 21.5345,
+    "DNIcosZ": 23.136,
+    "GHI": 23.12,
+    "POA": 18.1915,
+    "RSI": 26.401
+  },
+  "decision_statistic_s": 26.401,
+  "exception_tag_count": 1,
+  "supported_tag_count": 18,
+  "unresolved_reason": null
+}

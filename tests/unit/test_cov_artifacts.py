@@ -4,7 +4,9 @@ import json
 from pathlib import Path
 
 import pandas as pd
+import matplotlib.pyplot as plt
 
+from src.characterisation import cov_artifacts
 from src.characterisation.cov_artifacts import (
     CovArtifactBundle,
     write_cov_artifacts,
@@ -234,6 +236,49 @@ def test_artifact_tables_are_sorted_and_report_has_required_sections(tmp_path: P
     assert "## Heartbeat and configured max-report-time" in report
     assert "## Complete per-tag appendix" in report
     assert "ZIPs matched to the reference inventory: **2**" in report
+    assert "consistent with naive WITA" in report
+    assert "07:00-10:00" in report
     assert "tag-a" in report and "tag-b" in report
     for figure in (tmp_path / "figures").glob("*.png"):
         assert figure.stat().st_size > 1_000
+
+
+def test_gap_plot_explicitly_marks_missing_heartbeat_evidence(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    observed_text: list[str] = []
+
+    def capture(figure, _path: Path) -> None:
+        observed_text.extend(text.get_text() for axis in figure.axes for text in axis.texts)
+        plt.close(figure)
+
+    monkeypatch.setattr(cov_artifacts, "_save_figure", capture)
+    cov_artifacts._plot_gap_heartbeat(
+        _bundle().tag_stats,
+        tmp_path / "gap.png",
+    )
+
+    assert "heartbeat: insufficient evidence" in observed_text
+
+
+def test_daylight_evidence_uses_substantial_window_not_isolated_outliers() -> None:
+    event_times = [pd.Timestamp("2026-06-01 04:00:00")] * 2
+    event_times.extend(
+        pd.Timestamp(f"2026-06-01 {hour:02d}:00:00")
+        for hour in range(6, 19)
+        for _ in range(100)
+    )
+    events = pd.DataFrame(
+        {
+            "parameter_class": ["instantaneous_irradiance"] * len(event_times),
+            "event_time": event_times,
+            "value": [10.0] * len(event_times),
+        }
+    )
+
+    evidence = cov_artifacts._daylight_evidence(events)
+
+    assert "06:00-18:00" in evidence
+    assert "2 non-flat events outside" in evidence
+    assert "consistent with naive WITA" in evidence
