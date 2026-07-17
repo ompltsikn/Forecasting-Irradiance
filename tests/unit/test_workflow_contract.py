@@ -112,3 +112,14 @@ def test_readme_contains_safety_gate_and_ecmwf_attribution() -> None:
     assert "valid_time_utc" in text
     assert "retrieved_at_utc" in text
     assert "No forecasting model" in text
+
+
+def test_cov_requirements_pin_the_xlsx_reader_used_by_s0_3() -> None:
+    requirements = Path("requirements-cov.txt").read_text(encoding="utf-8")
+    assert "openpyxl==3.1.5" in requirements.splitlines()
+
+
+def test_nwp_workflow_installs_dependencies_for_the_suite_it_runs() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "requirements-nwp.txt" in text
+    assert "requirements-cov.txt" in text

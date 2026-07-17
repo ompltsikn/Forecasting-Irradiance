@@ -1,0 +1,139 @@
+name: S0-3 DNIcosZ Full-History Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: s0-3-dni-cosz-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  analyse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      S03_WORK_ROOT: ${{ runner.temp }}/s0-3-dni-cosz
+      RAW_SOURCE: "gdrive:raw_data"
+      HISTORICAL_SOURCE: "gdrive:Data Weather Station"
+      EXPECTED_RAW_ZIP_COUNT: "145"
+      EXPECTED_RAW_BYTES: "23776109"
+      EXPECTED_XLSX_COUNT: "156"
+      EXPECTED_XLSX_BYTES: "291499871"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-cov.txt
+
+      - name: Install and verify S0-3 code
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --disable-pip-version-check -r requirements-cov.txt
+          python -m pytest -q
+
+      - name: Install pinned rclone
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          archive="${RUNNER_TEMP}/rclone-v1.74.4-linux-amd64.zip"
+          curl --fail --silent --show-error --location \
+            --output "${archive}" \
+            "https://downloads.rclone.org/v1.74.4/rclone-v1.74.4-linux-amd64.zip"
+          echo "fe435e0c36228e7c2f116a8701f01127bb1f694005fc11d1f27186c8bca4115d  ${archive}" |
+            sha256sum --check
+          unzip -q "${archive}" -d "${RUNNER_TEMP}/rclone"
+          rclone_dir="${RUNNER_TEMP}/rclone/rclone-v1.74.4-linux-amd64"
+          chmod 755 "${rclone_dir}/rclone"
+          echo "${rclone_dir}" >> "${GITHUB_PATH}"
+
+      - name: Reconstruct rclone configuration
+        env:
+          RCLONE_CONFIG_B64: ${{ secrets.RCLONE_CONFIG_B64 }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          config_dir="${RUNNER_TEMP}/s03-rclone"
+          config_path="${config_dir}/rclone.conf"
+          install -d -m 700 "${config_dir}"
+          printf '%s' "${RCLONE_CONFIG_B64}" | base64 --decode > "${config_path}"
+          test -s "${config_path}"
+          chmod 600 "${config_path}"
+          printf 'RCLONE_CONFIG=%s\n' "${config_path}" >> "${GITHUB_ENV}"
+
+      - name: Download and verify audited source inventories
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          raw_dir="${S03_WORK_ROOT}/raw"
+          history_dir="${S03_WORK_ROOT}/historical"
+          install -d "${raw_dir}" "${history_dir}"
+          rclone copy "${RAW_SOURCE}" "${raw_dir}" \
+            --max-depth 1 \
+            --include '*.zip' \
+            --checkers 8 \
+            --transfers 8
+          history_filters=()
+          for year in 2025 2026; do
+            for ws in 1 2 3 4; do
+              for prefix in GHI DHI DNI; do
+                history_filters+=(--filter "+ /${year}/WS-${ws}/**/${prefix}*.xlsx")
+              done
+            done
+          done
+          rclone copy "${HISTORICAL_SOURCE}" "${history_dir}" \
+            --filter '- **/*Accum*.xlsx' \
+            "${history_filters[@]}" \
+            --filter '- **' \
+            --checkers 16 \
+            --transfers 16
+          raw_count="$(find "${raw_dir}" -maxdepth 1 -type f -name '*.zip' | wc -l)"
+          raw_bytes="$(find "${raw_dir}" -maxdepth 1 -type f -name '*.zip' -printf '%s\n' | awk '{total += $1} END {print total + 0}')"
+          xlsx_count="$(find "${history_dir}" -type f -name '*.xlsx' | wc -l)"
+          xlsx_bytes="$(find "${history_dir}" -type f -name '*.xlsx' -printf '%s\n' | awk '{total += $1} END {print total + 0}')"
+          test "${raw_count}" = "${EXPECTED_RAW_ZIP_COUNT}"
+          test "${raw_bytes}" = "${EXPECTED_RAW_BYTES}"
+          test "${xlsx_count}" = "${EXPECTED_XLSX_COUNT}"
+          test "${xlsx_bytes}" = "${EXPECTED_XLSX_BYTES}"
+          printf 'verified raw_zip_count=%s raw_bytes=%s xlsx_count=%s xlsx_bytes=%s\n' \
+            "${raw_count}" "${raw_bytes}" "${xlsx_count}" "${xlsx_bytes}"
+
+      - name: Run strict full-history S0-3 analysis
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m src.characterisation.dni_cosz_cli \
+            --raw-dir "${S03_WORK_ROOT}/raw" \
+            --historical-xlsx-root "${S03_WORK_ROOT}/historical" \
+            --output-dir "${S03_WORK_ROOT}/artifacts" \
+            --tag-stats artifacts/phase0_cov/tag_characterisation.csv \
+            --site-config configs/site_plts-ikn.yaml
+
+      - name: Upload deterministic evidence only
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: s0-3-dni-cosz-evidence
+          path: ${{ runner.temp }}/s0-3-dni-cosz/artifacts
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Cleanup credentials and source data
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rm -f -- "${RCLONE_CONFIG:-${RUNNER_TEMP}/s03-rclone/rclone.conf}"
+          rm -rf -- "${RUNNER_TEMP}/s03-rclone"
+          rm -rf -- "${S03_WORK_ROOT}"
