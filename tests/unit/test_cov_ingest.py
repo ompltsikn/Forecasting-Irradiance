@@ -161,6 +161,11 @@ def test_exact_duplicates_are_removed_and_conflicts_are_quarantined(
     assert result.events["value"].tolist() == [10.0, 13.0]
     assert (result.row_exceptions["reason"] == "timestamp_conflict").sum() == 2
     assert any("1 conflicting tag/timestamp" in error for error in result.strict_errors)
+    integrity = result.integrity_by_tag.set_index("full_tag").loc[EMI01_GHI]
+    assert integrity["event_count_before_integrity"] == 5
+    assert integrity["event_count_after_integrity"] == 2
+    assert integrity["exact_duplicate_count"] == 1
+    assert integrity["timestamp_conflict_count"] == 1
 
 
 def test_mixed_timestamp_shapes_are_explicit_strict_error(tmp_path: Path) -> None:

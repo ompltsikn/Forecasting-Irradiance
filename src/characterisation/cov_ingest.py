@@ -30,6 +30,7 @@ class IngestionResult:
     empty_entries: pd.DataFrame
     row_exceptions: pd.DataFrame
     timestamp_audit: pd.DataFrame
+    integrity_by_tag: pd.DataFrame
     strict_errors: tuple[str, ...]
     exact_duplicate_count: int
     timestamp_conflict_count: int
@@ -68,6 +69,14 @@ AUDIT_COLUMNS = (
     "timestamp_shape",
     "coverage_start_raw",
     "coverage_end_raw",
+    "order_violation_count",
+)
+INTEGRITY_COLUMNS = (
+    "full_tag",
+    "event_count_before_integrity",
+    "event_count_after_integrity",
+    "exact_duplicate_count",
+    "timestamp_conflict_count",
     "order_violation_count",
 )
 EVENT_COLUMNS = (
@@ -358,10 +367,11 @@ def _read_csv_entry(
 def _quarantine_duplicates_and_conflicts(
     events: pd.DataFrame,
     exceptions: list[dict[str, object]],
-) -> tuple[pd.DataFrame, int, int, list[str]]:
+) -> tuple[pd.DataFrame, int, int, list[str], pd.DataFrame]:
     if events.empty:
-        return events, 0, 0, []
+        return events, 0, 0, [], _empty_frame(INTEGRITY_COLUMNS[:-1])
 
+    before_counts = events.groupby("full_tag", observed=True).size()
     sort_columns = [
         "full_tag",
         "event_time_ns",
@@ -371,7 +381,9 @@ def _quarantine_duplicates_and_conflicts(
     ]
     events = events.sort_values(sort_columns, kind="stable", ignore_index=True)
     exact_key = ["full_tag", "event_time_ns", "value", "object_caeid_raw"]
-    exact_duplicate_count = int(events.duplicated(exact_key, keep="first").sum())
+    exact_mask = events.duplicated(exact_key, keep="first")
+    exact_counts = events.loc[exact_mask].groupby("full_tag", observed=True).size()
+    exact_duplicate_count = int(exact_mask.sum())
     events = events.drop_duplicates(exact_key, keep="first", ignore_index=True)
 
     conflict_mask = events.duplicated(
@@ -381,6 +393,12 @@ def _quarantine_duplicates_and_conflicts(
     conflicted = events.loc[conflict_mask].copy()
     timestamp_conflict_count = int(
         conflicted[["full_tag", "event_time_ns"]].drop_duplicates().shape[0]
+    )
+    conflict_counts = (
+        conflicted[["full_tag", "event_time_ns"]]
+        .drop_duplicates()
+        .groupby("full_tag", observed=True)
+        .size()
     )
     if timestamp_conflict_count:
         for row in conflicted.itertuples(index=False):
@@ -402,11 +420,29 @@ def _quarantine_duplicates_and_conflicts(
         if timestamp_conflict_count
         else []
     )
+    after_counts = events.groupby("full_tag", observed=True).size()
+    integrity = pd.DataFrame({"full_tag": before_counts.index.astype(str)})
+    integrity["event_count_before_integrity"] = integrity["full_tag"].map(
+        before_counts
+    )
+    integrity["event_count_after_integrity"] = (
+        integrity["full_tag"].map(after_counts).fillna(0)
+    )
+    integrity["exact_duplicate_count"] = (
+        integrity["full_tag"].map(exact_counts).fillna(0)
+    )
+    integrity["timestamp_conflict_count"] = (
+        integrity["full_tag"].map(conflict_counts).fillna(0)
+    )
+    for column in INTEGRITY_COLUMNS[1:-1]:
+        integrity[column] = integrity[column].astype("int64")
+    integrity = integrity.sort_values("full_tag", kind="stable", ignore_index=True)
     return (
         events,
         exact_duplicate_count,
         timestamp_conflict_count,
         strict_errors,
+        integrity,
     )
 
 
@@ -497,6 +533,7 @@ def ingest_cov_directory(raw_dir: Path) -> IngestionResult:
         exact_duplicate_count,
         timestamp_conflict_count,
         conflict_errors,
+        integrity_by_tag,
     ) = _quarantine_duplicates_and_conflicts(events, exceptions)
     strict_errors.extend(conflict_errors)
     events = _categorize_event_strings(events)
@@ -509,6 +546,26 @@ def ingest_cov_directory(raw_dir: Path) -> IngestionResult:
             ignore_index=True,
         )
 
+    audit_frame = (
+        pd.DataFrame(audits, columns=AUDIT_COLUMNS).sort_values(
+            ["source_zip", "source_csv"],
+            kind="stable",
+            ignore_index=True,
+        )
+        if audits
+        else _empty_frame(AUDIT_COLUMNS)
+    )
+    order_counts = (
+        audit_frame.groupby("full_tag", observed=True)["order_violation_count"].sum()
+        if not audit_frame.empty
+        else pd.Series(dtype="int64")
+    )
+    integrity_by_tag["order_violation_count"] = (
+        integrity_by_tag["full_tag"].map(order_counts).fillna(0).astype("int64")
+        if not integrity_by_tag.empty
+        else pd.Series(dtype="int64")
+    )
+
     return IngestionResult(
         events=events,
         source_manifest=manifest,
@@ -520,13 +577,8 @@ def ingest_cov_directory(raw_dir: Path) -> IngestionResult:
         if empty_entries
         else _empty_frame(EMPTY_COLUMNS),
         row_exceptions=exception_frame,
-        timestamp_audit=pd.DataFrame(audits, columns=AUDIT_COLUMNS).sort_values(
-            ["source_zip", "source_csv"],
-            kind="stable",
-            ignore_index=True,
-        )
-        if audits
-        else _empty_frame(AUDIT_COLUMNS),
+        timestamp_audit=audit_frame,
+        integrity_by_tag=integrity_by_tag,
         strict_errors=tuple(strict_errors),
         exact_duplicate_count=exact_duplicate_count,
         timestamp_conflict_count=timestamp_conflict_count,
