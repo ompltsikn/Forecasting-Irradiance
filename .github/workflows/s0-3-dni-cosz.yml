@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
-      S03_WORK_ROOT: ${{ runner.temp }}/s0-3-dni-cosz
+      S03_WORK_ROOT: /tmp/s0-3-dni-cosz
       RAW_SOURCE: "gdrive:raw_data"
       HISTORICAL_SOURCE: "gdrive:Data Weather Station"
       EXPECTED_RAW_ZIP_COUNT: "145"
@@ -125,7 +125,7 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: s0-3-dni-cosz-evidence
-          path: ${{ runner.temp }}/s0-3-dni-cosz/artifacts
+          path: /tmp/s0-3-dni-cosz/artifacts
           if-no-files-found: warn
           retention-days: 14
 

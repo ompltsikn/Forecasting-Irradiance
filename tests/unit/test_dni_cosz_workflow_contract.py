@@ -15,6 +15,9 @@ def test_full_history_workflow_is_manual_read_only_and_pinned() -> None:
     assert "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0" in text
     assert "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1" in text
     assert "actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f" in text
+    job_env_start = text.index("    env:")
+    steps_start = text.index("    steps:", job_env_start)
+    assert "runner.temp" not in text[job_env_start:steps_start]
 
 
 def test_full_history_workflow_verifies_both_source_inventories() -> None:
