@@ -101,8 +101,8 @@ def _bundle() -> CovArtifactBundle:
     reconciliation = ReconciliationResult(
         table=pd.DataFrame(
             [
-                {"zip_name": "b.zip", "local_byte_size": 20, "reference_byte_size": 20, "status": "matched"},
-                {"zip_name": "a.zip", "local_byte_size": 10, "reference_byte_size": 10, "status": "matched"},
+                {"zip_name": "b.zip", "local_byte_size": 20, "drive_byte_size": 20, "match_status": "matched"},
+                {"zip_name": "a.zip", "local_byte_size": 10, "drive_byte_size": 10, "match_status": "matched"},
             ]
         ),
         strict_errors=(),
@@ -233,6 +233,7 @@ def test_artifact_tables_are_sorted_and_report_has_required_sections(tmp_path: P
     assert "## Timestamp semantics" in report
     assert "## Heartbeat and configured max-report-time" in report
     assert "## Complete per-tag appendix" in report
+    assert "ZIPs matched to the reference inventory: **2**" in report
     assert "tag-a" in report and "tag-b" in report
     for figure in (tmp_path / "figures").glob("*.png"):
         assert figure.stat().st_size > 1_000

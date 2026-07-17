@@ -380,8 +380,8 @@ def _render_report(bundle: CovArtifactBundle) -> str:
         else []
     )
     matched = (
-        int((reconciliation["status"] == "matched").sum())
-        if "status" in reconciliation
+        int((reconciliation["match_status"] == "matched").sum())
+        if "match_status" in reconciliation
         else 0
     )
     heartbeat_supported = (
