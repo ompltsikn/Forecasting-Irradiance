@@ -1,0 +1,13 @@
+emi,channel_group,quantization_step_wm2,quantization_source,deadband_confidence
+EMI01,GHI,1,empirical_deadband,high
+EMI01,DHI,1,empirical_deadband,high
+EMI01,DNIcosZ,2,abs_delta_p01_fallback,unresolved
+EMI02,GHI,1,empirical_deadband,high
+EMI02,DHI,1,empirical_deadband,high
+EMI02,DNIcosZ,1,empirical_deadband,high
+EMI03,GHI,1,empirical_deadband,high
+EMI03,DHI,1,empirical_deadband,high
+EMI03,DNIcosZ,1,empirical_deadband,high
+EMI04,GHI,1,empirical_deadband,high
+EMI04,DHI,1,empirical_deadband,high
+EMI04,DNIcosZ,1,empirical_deadband,high

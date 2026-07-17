@@ -48,17 +48,18 @@ def test_measured_cov_decision_is_consistent_across_config_and_ledgers() -> None
         assert "34 meteorological" in text
         assert "configured max-report-time" in text
         assert "`unknown`" in text
-        assert "0/7" in text
+        assert "1/7" in text
         assert "NO-GO for Phase 1" in text
         assert "docs/phase0_cov_characterisation.md" in text
         assert "Sprint 0 acceptance checklist" in text
-        assert "**S0-3 decision: GO now.**" in text
+        assert "**S0-3 decision: COMPLETE.**" in text
+        assert "**S0-4 decision: GO now.**" in text
         assert "observation **1/2**" in text
         assert "historian timestamp semantics, configured max-report-time, and configured deadband" in text
 
         s0_3_status_lines = [
             line
             for line in text.splitlines()
-            if line.startswith("| **S0-3** |") and "GO now" in line
+            if line.startswith("| **S0-3** |") and "✅" in line
         ]
         assert s0_3_status_lines

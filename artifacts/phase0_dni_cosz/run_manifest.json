@@ -1,0 +1,13 @@
+{
+  "artifact_sha256": {
+    "figures/dni_cosz_residual_vs_zenith.png": "8e99a7b28b1bc7c3914743a20391fc5405db81500d7386e61997d784bb6bb4b7",
+    "per_emi_summary.csv": "7c01e70c999d47f65c3e90b029b46425fd6c2052a423a39e34f2d6251194cc9a",
+    "quantization_evidence.csv": "a79f2d19ab6786975109205bd6b37bbe8cfcf62a8546936a1c4d83fceddb125f",
+    "residual_summary.csv": "07be1cfa7be2671743fca86d55b78232d90fc654ec7528ee20d7ed9dcb2d493a",
+    "residual_summary.json": "df373013a6ef8d3602b256cedb165905df06fd23d3f6986cce62dc8146e223e5",
+    "source_manifest.csv": "5c8b3313ee79bd6b6b17f8b561abffcc62c2e34c8e22efac0bdac68c399f6f89"
+  },
+  "historical_scope_included": true,
+  "strict_error_count": 0,
+  "strict_status": "passed"
+}

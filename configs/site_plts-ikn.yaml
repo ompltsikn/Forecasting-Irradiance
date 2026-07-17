@@ -5,3 +5,12 @@ site:
   elevation_m: 85.0
   timezone: "Asia/Makassar"
   canonical_freq: "1min"  # S0-2 measured decision; see docs/phase0_cov_characterisation.md
+
+sensor_metadata:
+  dni_cosz:
+    canonical_name: "Direct Horizontal Irradiance (DNIcosZ)"
+    is_derived_tag: false
+    semantics_decision: "measured"
+    decision_artifact: "artifacts/phase0_dni_cosz/residual_summary.json"
+    timestamp_semantics_status: "unconfirmed"
+    zenith_interpretation_status: "provisional"
