@@ -48,7 +48,7 @@ def test_measured_cov_decision_is_consistent_across_config_and_ledgers() -> None
         assert "34 meteorological" in text
         assert "configured max-report-time" in text
         assert "`unknown`" in text
-        assert "3/7" in text
+        assert "M0 is **not passed (4/7 fully accepted)**" in text
         assert "NO-GO for Phase 1" in text
         assert "docs/phase0_cov_characterisation.md" in text
         assert "Sprint 0 acceptance checklist" in text
@@ -73,15 +73,17 @@ def test_measured_cov_decision_is_consistent_across_config_and_ledgers() -> None
         assert "**S0-5 decision: COMPLETE.**" in text
         assert "docs/phase0_data_audit.md" in text
 
-        # The Sprint 0 progress board and the S0-6 GO decision must be present
-        # and identical in all three normative documents.
+        # The Sprint 0 progress board and evidence-backed S0-6 completion must
+        # be present and identical in all three normative documents.
         assert "#### Sprint 0 progress board" in text
-        assert "**S0-6 decision: GO now**" in text
+        assert "**S0-6 decision: COMPLETE.**" in text
+        assert "actions/runs/29689204001" in text
+        assert "272 passing tests" in text
         assert "tests/leakage/test_no_future_leakage.py" in text
         s0_6_progress_lines = [
             line
             for line in text.splitlines()
-            if line.startswith("| **S0-6** |") and "2/4" in line
+            if line.startswith("| **S0-6** |") and "4/4" in line
         ]
         assert s0_6_progress_lines
         s0_5_status_lines = [
@@ -90,3 +92,10 @@ def test_measured_cov_decision_is_consistent_across_config_and_ledgers() -> None
             if line.startswith("| **S0-5** |") and "✅" in line
         ]
         assert s0_5_status_lines
+
+    prd, master, roadmap = (
+        path.read_text(encoding="utf-8") for path in NORMATIVE_DOCS
+    )
+    assert "| Version | 2.0 (S0-6 complete; general CI + leakage harness) |" in prd
+    assert "**Revision:** 2.0" in master
+    assert "**Revision:** 2.0" in roadmap
