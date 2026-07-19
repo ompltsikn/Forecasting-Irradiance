@@ -1,7 +1,7 @@
 # ROADMAP — Multi-Horizon Probabilistic Irradiance Forecasting System (PLTS)
 
 **File:** `ROADMAP_Forecasting_Irradiance_ML.md`
-**Revision:** 2.2
+**Revision:** 2.3
 **Companions:**
 - `PRD_Forecasting_Irradiance_ML.md` — scope, requirements, rationale, source-document audit
 - `MASTER_CONTEXT_Forecasting_Irradiance_ML.md` — normative implementation rules (ADRs, contracts, agent instructions)
@@ -286,9 +286,9 @@ Each gate is a **go/no-go**, not a status update. A gate that everyone passes is
 | **S0-6** | **Repo skeleton + CI + the leakage harness.** | Green CI on an empty pipeline; `tests/leakage/test_no_future_leakage.py` | 0.5 wk | ML Eng | **Write the test that makes the project safe *before* the code that could break it.** |
 | **S0-7** | **Escalate OD-1 to OT security.** Send the controlled brief and obtain a written answer on the achievable path/cadence/latency, or a dated commitment from a named OT decision owner. | A written decision, or a named OT decision owner plus target decision date; canonical pack: `docs/phase0_ot_security_escalation.md` + `artifacts/phase0_ot_security/decision_record.json` | 0.1 wk | Product | **M0 escalation evidence and Phase 4 servability. Longest lead time in the programme. Start it now.** |
 
-### 7.0.1 Execution status — 2026-07-19
+### 7.0.1 Execution status — 2026-07-20
 
-> **Snapshot:** 2026-07-19 15:01 UTC. Legend: ✅ complete · 🟡 in progress · ⏭️ ready to start · ⬜ not started. Green means the deliverable **and** its acceptance evidence exist; it does not mean “the code was written.”
+> **Snapshot:** 2026-07-20 00:51 WITA (2026-07-19 16:51 UTC). Legend: ✅ complete · 🟡 in progress · ⏭️ ready to start · ⬜ not started. Green means the deliverable **and** its acceptance evidence exist; it does not mean “the code was written.”
 
 | ID | Status | Verified progress | Remaining gate / next action |
 |---|---|---|---|
@@ -304,19 +304,19 @@ Each gate is a **go/no-go**, not a status update. A gate that everyone passes is
 
 **Literal Gate M0 criterion coverage:** **6/7 evidenced** under the unchanged §6 wording. M0-② is evidenced by the measured `canonical_freq=1min`; M0-④ is evidenced because `site_configuration` is populated and every recorded gap has an owner plus date. This 6/7 criterion count is deliberately separate from the stricter 4/7 parent-task acceptance count; neither count makes S0-2 or S0-4 green.
 
-**Gate decision:** M0 is **not passed** because M0-⑦ / OD-1 has not been formally escalated with written evidence or a dated commitment. **S0-3 decision: COMPLETE.** **S0-4 decision: consolidation delivered; 🟡 pending serial/calibration certificates and mapping/geometry confirmations.** **S0-5 decision: COMPLETE.** **S0-6 decision: COMPLETE.** The pre-change baseline General CI run [29691093243](https://github.com/ompltsikn/Forecasting-Irradiance/actions/runs/29691093243) passed at `4198f78beff9994ff74d63cbad14e1da464c7f39`; it is not presented as validation of the pending v2.2 change. The focused status contract and the canonical 272-test suite pass locally on the pending v2.2 working tree before commit. **S0-7 decision: GO / READY TO START.** Its pending template is not acceptance evidence, and formal M0 closeout has not been performed. Completing S0-7 still requires a formal M0 closeout that explicitly reconciles the two yellow parent tasks. **NO-GO for Phase 1 and for any model.**
+**Gate decision:** M0 is **not passed** because M0-⑦ / OD-1 has not been formally escalated with written evidence or a dated commitment. **S0-3 decision: COMPLETE.** **S0-4 decision: consolidation delivered; 🟡 pending serial/calibration certificates and mapping/geometry confirmations.** **S0-5 decision: COMPLETE.** **S0-6 decision: COMPLETE.** The final v2.2 General CI run [29693115223](https://github.com/ompltsikn/Forecasting-Irradiance/actions/runs/29693115223) passed 272 tests at `fd954edd6293f5d063a4ae17226f6ef59ef810fc`; scheduled NWP run [29694308142](https://github.com/ompltsikn/Forecasting-Irradiance/actions/runs/29694308142) also completed its configure, IFS, and AIFS jobs at that SHA. The focused status contract and canonical 272-test suite were rerun locally for v2.3 before commit. **S0-7 decision: GO / READY TO START.** Its pending template is not acceptance evidence, and formal M0 closeout has not been performed. Completing S0-7 still requires a formal M0 closeout that explicitly reconciles the two yellow parent tasks. **NO-GO for Phase 1 and for any model.**
 
-#### Sprint 0 audit refresh — v2.2
+#### Sprint 0 audit refresh — v2.3
 
 | Task | Audited status | Progress note |
 |---|---|---|
-| **S0-1** | ✅ **Done (4/4)** | Archiver code/schema, IFS+AIFS schedule, separate issue/valid/retrieval timestamps, Shared-Drive SHA-256 read-back, and observation 2/2 remain accepted. Latest scheduled run [29689693626](https://github.com/ompltsikn/Forecasting-Irradiance/actions/runs/29689693626) is green; only routine monitoring remains. |
+| **S0-1** | ✅ **Done (4/4)** | Archiver code/schema, IFS+AIFS schedule, separate issue/valid/retrieval timestamps, Shared-Drive SHA-256 read-back, and observation 2/2 remain accepted. Latest canonical scheduled run [29694308142](https://github.com/ompltsikn/Forecasting-Irradiance/actions/runs/29694308142) is green at `fd954edd6293f5d063a4ae17226f6ef59ef810fc`; configure, IFS, and AIFS jobs completed, with already archived cycles skipped idempotently. Only routine monitoring remains. |
 | **S0-2** | 🟡 **4/5** | Measured deliverables are complete: 145/145 ZIPs, 2,640,992 post-integrity events, per-tag timing/deadband evidence, deterministic report/artifacts, and `canonical_freq=1min`. Still needed: source-system proof of timestamp semantics, configured max-report-time, and configured deadband. |
 | **S0-3** | ✅ **Done (4/4)** | Run 29589030480, 40/40 `measured` cases, report/artifacts, and `sensor_metadata.is_derived_tag=false` remain accepted. The zenith caveat follows S0-2 and does not reopen S0-3. |
 | **S0-4** | 🟡 **5/6** | Canonical site/sensor metadata, surveyed geometry, instrument inventory, RSI survey, provenance, and validation exist. The eight-entry open register includes `sensor_metadata.*.serial`, calibration date/due/factor, RSI model, DHI shading, `sensor_metadata.dni_cosz.iso9060_class`, EMI↔WS mapping, design geometry, and `site.horizons_min/site.daylight_elev_threshold_deg/site.clearsky_model/site.nrmse_denominator`; every entry has owner/reason/due date. |
 | **S0-5** | ✅ **Done (6/6)** | Run 29683909065 remains accepted: 19 months, 377 XLSX plus 145 ZIPs, 138 outage candidates, empirical `k_c`/regimes, all six operator leads, and operational-period evidence. The historian-timezone caveat remains explicit. |
-| **S0-6** | ✅ **Done (4/4)** | Repository skeleton, 272 passing tests, test-only leakage harness, and read-only push/PR CI remain accepted. Acceptance run [29689204001](https://github.com/ompltsikn/Forecasting-Irradiance/actions/runs/29689204001) and pre-change baseline run [29691093243](https://github.com/ompltsikn/Forecasting-Irradiance/actions/runs/29691093243) at `4198f78beff9994ff74d63cbad14e1da464c7f39` are green. The focused status contract and canonical 272-test suite also pass locally on the pending v2.2 working tree before commit. |
-| **S0-7** | ⏭️ **GO / ready to start (0/1)** | The sanitized escalation pack at `docs/phase0_ot_security_escalation.md` and `artifacts/phase0_ot_security/decision_record.json` exists with `record_status=pending`; the template is not acceptance evidence. Still needed: controlled external evidence of a path/cadence/latency decision, or a named OT decision owner plus target decision date. |
+| **S0-6** | ✅ **Done (4/4)** | Repository skeleton, 272 passing tests, test-only leakage harness, and read-only push/PR CI remain accepted. Acceptance run [29689204001](https://github.com/ompltsikn/Forecasting-Irradiance/actions/runs/29689204001), pre-v2.2 baseline run [29691093243](https://github.com/ompltsikn/Forecasting-Irradiance/actions/runs/29691093243), and final v2.2 run [29693115223](https://github.com/ompltsikn/Forecasting-Irradiance/actions/runs/29693115223) at `fd954edd6293f5d063a4ae17226f6ef59ef810fc` are green. The final v2.2 run passed 272 tests; the focused status contract and canonical suite were rerun locally for v2.3 before commit. |
+| **S0-7** | ⏭️ **GO / ready to start (0/1)** | The sanitized escalation pack at `docs/phase0_ot_security_escalation.md` and `artifacts/phase0_ot_security/decision_record.json` exists. The 2026-07-20 live re-audit still finds `record_status=pending`, no sent reference, no named OT decision owner, no target date, and no path/cadence/latency decision; the template is not acceptance evidence. |
 
 #### Sprint 0 progress board
 
@@ -339,7 +339,7 @@ Each gate is a **go/no-go**, not a status update. A gate that everyone passes is
 | **S0-1** | Archiver code/schema, IFS+AIFS workflow activation, manual smoke/full/catch-up, Shared Drive read-back validation, first qualifying scheduled issue cycle, and the post-fix scheduled runs 29592915322/29600290220 committing and read-back-validating the successive cycles; observation **2/2**. | — Complete. |
 | **S0-2** | Local/Drive raw reconciliation; actual CSV schema; tag parser and EMI01–05 aliases; multi-CSV/empty/malformed/duplicate/order handling; per-tag deadband, inter-arrival, max-gap, flat/night, and heartbeat evidence; five plots; deterministic CLI/Colab artifacts; `canonical_freq=1min`; tests and normative report. | Source-system evidence for historian timestamp semantics, configured max-report-time, and configured deadband. Until then the parent remains 🟡 even though the measured deliverables are complete. |
 | **S0-3** | Provenance-complete raw COV + historical XLSX test; no-future alignment; direct + four staleness cases; 40/40 stable `measured`; plot/report/artifacts/tests; `sensor_metadata.is_derived_tag=false`; run 29589030480. | — Complete. Retain the provisional zenith caveat pending historian clock confirmation. |
-| **S0-4** | Canonical `site_configuration` + `sensor_metadata` populated with provenance; GCR/row-pitch/module-height derived from the field survey; bifaciality and instrument inventory from as-built datasheets; RSI mounting survey recorded; schema validation and tests green; every unresolved field has owner/reason/due-date. | Serial numbers and calibration date/due/factor certificates; RSI model, DHI shading, EMI↔WS mapping, and design-drawing geometry confirmation. |
+| **S0-4** | Canonical `site_configuration` + `sensor_metadata` populated with provenance; GCR/row-pitch/module-height derived from the field survey; bifaciality and instrument inventory from as-built datasheets; RSI mounting survey recorded; schema validation and tests green; every unresolved field has owner/reason/due-date. | Serial numbers and calibration date/due/factor certificates; RSI model, DHI shading, DR20 ISO class, EMI↔WS mapping, design-drawing geometry confirmation, and the Phase-1 modelling-policy field group. |
 | **S0-5** | Full 19-month history (2024-12 → 2026-06) audited via strict run 29683909065: coverage/gap profiles, 138 outage candidates, empirical monthly `k_c` and rule-based cloud-regime distributions read from the data, all six operator leads sensor-corroborated, and maintenance/outage/curtailment periods extracted. Evidence: `docs/phase0_data_audit.md` + `artifacts/phase0_data_audit/`. | — Complete. Month/season labels stay provisional until the S0-2 historian-timezone item closes; that caveat is carried inside the audit and does not block S0-5. |
 | **S0-6** | Repository skeleton, test-only `tests/leakage/test_no_future_leakage.py`, read-only push/PR CI, and **272 passing tests** are implemented; green Python-3.12 run [29689204001](https://github.com/ompltsikn/Forecasting-Irradiance/actions/runs/29689204001) proves the workflow. The harness covers cutoff invariance, feature/target isolation, verification lag, backward-only sources, missing/future/stale rejection, DNI·cosZ alignment, and bin-end ZOH semantics. | — Complete. Keep the harness test-only until feature/ensemble work is authorised; historian timezone semantics remain open under S0-2. |
 | **S0-7** | The current offline/manual SCADA export path is identified, and the sanitized brief plus `pending` structured record are prepared. This is preparation only; it is not OT approval or acceptance evidence. | Send the controlled escalation and retain its external reference. Obtain a written OT-security data-path/cadence/latency decision, or at minimum a named OT decision owner plus target decision date. |
@@ -348,7 +348,7 @@ Each gate is a **go/no-go**, not a status update. A gate that everyone passes is
 >
 > "Wet season = November–March" is **wrong for large parts of Indonesia.** The archipelago has (at least) three distinct rainfall regimes: **monsoonal** (Java, Nusa Tenggara, southern Kalimantan — one wet peak around Dec–Feb), **equatorial** (Sumatra, central Kalimantan — *two* rainfall peaks per year), and **anti-monsoonal / local** (parts of Maluku — wettest in **June–August**, the exact inverse).
 >
-> The site location is `[TBC]` (KU-01). **Assuming a monsoon calendar and designing the train/test split around it is how you build an "unseen-season test" that isn't one.**
+> The canonical PLTS-IKN location is now populated (`-0.991171…`, `116.638111…`, 85 m, `Asia/Makassar`). Even so, **assuming a monsoon calendar and designing the train/test split around it is how you build an "unseen-season test" that isn't one**; S0-5 measured no clean calendar season at this site.
 >
 > **S0-5 must therefore derive the site's own seasonal cloud-regime profile from the data** — monthly distributions of `k_c`, of `k_c` variability, and of the rule-based regime labels — and that empirical profile, not the calendar, defines what "unseen season" means for this site (ML-002).
 
@@ -920,26 +920,26 @@ gantt
 |---|---|---|---|---|---|---|---|
 | **OD-1** real-time data path | **OT Security** | 🔴 *(formal S0-7 escalation evidence; final outcome may remain pending)* | ⚪ | ⚪ | 🔴 *(final outcome)* | 🟠 | ⚪ |
 | **OD-2** ambient temp in scope? | Product | ⚪ | 🟠 | 🟠 | ⚪ | 🟠 | ⚪ |
-| **OD-3** `dni_cosz` derived? | Perf Eng | 🔴 *(it IS the sprint)* | 🟠 | ⚪ | ⚪ | ⚪ | ⚪ |
-| **OD-4** racking / tilt / azimuth | **Perf Eng** | ⚪ | **🔴** | 🔴 | 🔴 | 🔴 | 🔴 |
+| **OD-3** `dni_cosz` semantics — **closed: measured** | Perf Eng | ⚪ *(closed)* | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ |
+| **OD-4** racking / tilt / azimuth — **resolved for implementation; design confirmation open** | **Perf Eng** | ⚪ *(implementation fact populated)* | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 |
 | **OD-5** RSI geometry / albedo | Perf Eng | ⚪ | 🟠 *(RSI physics only)* | ⚪ | ⚪ | 🟠 | ⚪ |
 | **OD-6** satellite approved? | Product | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | 🟠 *(optional scope)* |
 | **OD-7** array-as-sensor approved? | Product | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | 🟠 *(optional scope)* |
-| **OD-8** historical coverage | Data Eng | 🔴 *(it IS the sprint)* | 🟠 *(caveats the baseline)* | 🟠 | ⚪ | ⚪ | **🔴** |
+| **OD-8** historical coverage — **closed: 19 months audited** | Data Eng | ⚪ *(closed)* | 🟠 *(regime-based caveat)* | 🟠 | ⚪ | ⚪ | 🟠 |
 | **OD-9** regulatory submission? | Asset Owner | ⚪ | ⚪ | 🟠 *(issuance schedule)* | 🟠 | 🟠 | ⚪ |
 | **OD-10** data residency | Legal / IT | ⚪ | ⚪ | ⚪ | **🔴** | ⚪ | ⚪ |
 | **OD-11** internet egress | IT / OT | ⚪ | ⚪ | **🔴** | ⚪ | ⚪ | 🟠 *(kills Tier 3)* |
 | **OD-12** wind available? | O&M | ⚪ | 🟠 | ⚪ | ⚪ | ⚪ | 🟠 |
 | **OD-13** COV deadband / heartbeat | Data Eng | 🔴 *(it IS the sprint)* | 🟠 | ⚪ | 🟠 *(servability)* | ⚪ | ⚪ |
 
-### 22.1 The four to chase this week
+### 22.1 The four evidence and decision items to chase now
 
 | Priority | Decision | Why now | Effort to answer |
 |---|---|---|---|
-| 🥇 | **OD-4** — fixed or tracker? tilt/azimuth? | **Hard-blocks five of six phases.** It is a drawing and a datasheet. | **Hours**, once someone looks |
-| 🥈 | **OD-1** — the data path | **Longest, least predictable lead time in the programme.** Missing escalation evidence blocks M0; the pending final outcome blocks no offline engineering after M0 but controls Phase-4 servability. | **Zero engineering.** Send the controlled brief, obtain evidence, then wait for the decision if needed. |
-| 🥉 | **OD-11** — internet egress | Determines whether Phase 2 exists at all. Also a softer ask than OD-1 (egress-only, to two known endpoints). | One conversation with IT |
-| 4️⃣ | **OD-8** — how much history? | Determines whether Phase 3 is worth planning. | **One query**, once you have the extract |
+| 🥇 | **OD-1 / S0-7** — controlled OT escalation evidence | **The only missing literal M0 criterion.** The final outcome later controls Phase-4 servability. | Send the prepared brief; retain a written decision or named owner + date. |
+| 🥈 | **S0-2** — historian configuration proof | Closes timestamp semantics and configured max-report-time/deadband without pretending empirical candidates are configuration. | One controlled historian/SCADA configuration export or owner attestation. |
+| 🥉 | **S0-4** — certificates and mapping/design confirmation | Raises the parent task from 5/6 and removes residual geometry/instrument uncertainty. | Collect the eight owner/due-dated evidence groups. |
+| 4️⃣ | **OD-11** — internet egress | Determines whether Phase 2 exists at all. It is a narrower egress-only decision than OD-1. | One conversation with IT/OT. |
 
 **Notice:** three of these four cost **almost no engineering effort** and are answered by **asking someone**. They are the highest-leverage work available right now, and they are not code.
 
@@ -980,10 +980,10 @@ If you read nothing else in this document:
 
 | # | Action | Owner | Effort | Why |
 |---|---|---|---|---|
-| **1** | **Start the NWP archiver.** | Data Eng | **A few hours** | It buys **three months of calendar time** that cannot be bought any other way (§16). Nothing depends on it yet. That is exactly why it will be postponed unless you do it now. |
-| **2** | **Ask Performance Engineering: fixed-tilt or tracker? What tilt and azimuth? Is the POA sensor co-planar with the modules?** | Product | **One email** | **OD-4 hard-blocks five of six phases.** It is a drawing and a datasheet. |
-| **3** | **Put OD-1 on OT Security's calendar.** | Product | **One meeting request** | Longest and least predictable lead time in the programme. Blocks nothing today. Blocks everything in Phase 4. |
-| **4** | **Run the ten-minute `dni_cosz` test.** Compute `GHI − DHI − DNI_cosZ` on whatever history you have. | Perf Eng | **Ten minutes** | If it is zero to machine precision, the channel is derived, half the QC design is theatre, and **you want to know that now, not in month four.** |
+| **1** | **Send the prepared OD-1 brief through the controlled OT channel and retain the external reference.** | Product | **One controlled send** | It is the only missing literal M0 criterion; no internal template can substitute for external evidence. |
+| **2** | **Obtain historian timestamp/max-report-time/deadband configuration evidence.** | Data Eng | **One configuration export or attestation** | This is the exact remaining S0-2 parent-task gate. |
+| **3** | **Collect the eight S0-4 certificate/mapping/design evidence groups.** | Perf Eng + O&M | **Document retrieval** | This is the exact remaining S0-4 parent-task gate; do not replace missing certificates with assumptions. |
+| **4** | **Confirm OD-11 internet egress for the analytics host.** | IT / OT | **One decision** | It determines whether Phase 2 day-ahead work has real NWP input. |
 
 **Nothing on that list is a model. Three of the four are not even code.**
 
@@ -1008,3 +1008,4 @@ That is not a failure of ambition. It is the recognition that on a project like 
 | 2.0 | 2026-07-19 | **S0-6 complete.** Added read-only push/PR CI and the test-only generic leakage harness; run [29689204001](https://github.com/ompltsikn/Forecasting-Irradiance/actions/runs/29689204001) passed 272 tests on Python 3.12 at `316f439130c88bc08ad4093c869c3d69b73d584c`. M0 moves 3/7 → 4/7; S0-2, S0-4, and S0-7 remain open, so Phase 1 and all model work remain NO-GO. No phase scope, estimate, or gate criterion changed. | *pending* |
 | 2.1 | 2026-07-19 | Re-audited S0-1–S0-6 against repository and live workflow evidence. Final-head General CI run [29689455820](https://github.com/ompltsikn/Forecasting-Irradiance/actions/runs/29689455820) is green at `7798d091f8a87fd05534a4d5e2edf1c7ecbdb46c`; scheduled NWP run [29689693626](https://github.com/ompltsikn/Forecasting-Irradiance/actions/runs/29689693626) is also green. Parent-task acceptance remains four green tasks plus two yellow tasks, while the unchanged M0 wording has six of seven literal criteria evidenced. S0-7 is authorised to start now. No phase scope, estimate, or gate criterion changed; Phase 1 and all model work remain NO-GO pending formal M0 closeout. | *pending* |
 | 2.2 | 2026-07-19 | Prepared the sanitized S0-7 escalation brief (`docs/phase0_ot_security_escalation.md`) and structured pending record (`artifacts/phase0_ot_security/decision_record.json`), and clarified that formal escalation evidence blocks M0 while the final OD-1 outcome gates Phase-4 servability. No external OT evidence, named decision owner, target date, or path/cadence/latency decision exists; the template is not acceptance evidence. S0-7 stays 0/1, parent acceptance stays 4/7, literal M0 evidence stays 6/7, and Phase 1/models remain NO-GO. | *pending* |
+| 2.3 | 2026-07-20 | Re-audited S0-1–S0-7 against the clean dual-remote release head and live workflow evidence. Final v2.2 General CI run [29693115223](https://github.com/ompltsikn/Forecasting-Irradiance/actions/runs/29693115223) passed 272 tests and scheduled NWP run [29694308142](https://github.com/ompltsikn/Forecasting-Irradiance/actions/runs/29694308142) completed configure, IFS, and AIFS at `fd954edd6293f5d063a4ae17226f6ef59ef810fc`. Sequencing text now reflects the closed S0-3 semantics, populated S0-4 implementation geometry, and 19-month S0-5 audit, while preserving the residual evidence caveats. No external OD-1 evidence was found: S0-7 stays 0/1, parent acceptance stays 4/7, literal M0 evidence stays 6/7, and Phase 1/models remain NO-GO. No phase scope, estimate, or gate criterion changed. | *pending* |

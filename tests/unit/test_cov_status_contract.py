@@ -172,13 +172,16 @@ def test_sprint_0_status_contract_is_consistent_across_artifacts_and_ledgers() -
         assert "actions/runs/29689455820" in text
         assert "actions/runs/29689693626" in text
         assert "actions/runs/29691093243" in text
+        assert "actions/runs/29693115223" in text
+        assert "actions/runs/29694308142" in text
         current_status = text.split(
             "**Sprint 0 parent-task acceptance:**", maxsplit=1
         )[1].split("#### Sprint 0 progress board", maxsplit=1)[0]
-        assert "actions/runs/29691093243" in current_status
-        assert "4198f78beff9994ff74d63cbad14e1da464c7f39" in current_status
+        assert "actions/runs/29693115223" in current_status
+        assert "actions/runs/29694308142" in current_status
+        assert "fd954edd6293f5d063a4ae17226f6ef59ef810fc" in current_status
         audit_block = current_status.split(
-            "#### Sprint 0 audit refresh — v2.2", maxsplit=1
+            "#### Sprint 0 audit refresh — v2.3", maxsplit=1
         )[1].strip()
         audit_blocks.append(audit_block)
         assert "272 passing tests" in text
@@ -234,12 +237,23 @@ def test_sprint_0_status_contract_is_consistent_across_artifacts_and_ledgers() -
         path.read_text(encoding="utf-8") for path in NORMATIVE_DOCS
     )
     assert audit_blocks[0] == audit_blocks[1] == audit_blocks[2]
-    assert "| Version | 2.2 (S0-7 escalation pack; evidence pending) |" in prd
-    assert "**Revision:** 2.2" in master
+    assert "| Version | 2.3 (Sprint 0 release audit; S0-7 evidence pending) |" in prd
+    assert "**Revision:** 2.3" in master
     assert "**Gate blocker / unresolved**" in master
     horizon_block = master.split("horizons:", maxsplit=1)[1].split(
         "evaluation:", maxsplit=1
     )[0]
     assert "served: true" not in horizon_block
     assert horizon_block.count("served: false") == 10
-    assert "**Revision:** 2.2" in roadmap
+    assert "**Revision:** 2.3" in roadmap
+
+    # Accepted discovery decisions must not be contradicted by stale prose or
+    # an unsafe serving default elsewhere in the normative contract.
+    assert "which is currently unverified" not in prd
+    assert (
+        "Whether the racking is fixed or tracking is currently unknown"
+        not in prd
+    )
+    assert "served: bool = Field(\n        False," in prd
+    assert "The site location is `[TBC]`" not in roadmap
+    assert "**S0-3 measured decision:**" in master
