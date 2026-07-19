@@ -72,6 +72,18 @@ def test_measured_cov_decision_is_consistent_across_config_and_ledgers() -> None
         # documents, and must point at its deliverable.
         assert "**S0-5 decision: COMPLETE.**" in text
         assert "docs/phase0_data_audit.md" in text
+
+        # The Sprint 0 progress board and the S0-6 GO decision must be present
+        # and identical in all three normative documents.
+        assert "#### Sprint 0 progress board" in text
+        assert "**S0-6 decision: GO now**" in text
+        assert "tests/leakage/test_no_future_leakage.py" in text
+        s0_6_progress_lines = [
+            line
+            for line in text.splitlines()
+            if line.startswith("| **S0-6** |") and "2/4" in line
+        ]
+        assert s0_6_progress_lines
         s0_5_status_lines = [
             line
             for line in text.splitlines()

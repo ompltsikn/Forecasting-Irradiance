@@ -15,7 +15,7 @@
 | Field | Value |
 |---|---|
 | Document ID | PRD-IRRAD-FCST-001 |
-| Version | 1.8 (S0-5 complete — full-history audit attached) |
+| Version | 1.9 (Sprint 0 progress board; S0-6 GO) |
 | Status | Draft for stakeholder review |
 | Product | Multi-Horizon Probabilistic Irradiance Forecasting System |
 | Programme | PLTS Analytics Platform — Module M1 |
@@ -37,6 +37,7 @@
 | 1.6 | 2026-07-18 | Recorded the evidence-backed GO decision for S0-5 (historical coverage audit) and refreshed the execution ledger to the post-S0-4 state. No product requirement or gate criterion changed. |
 | 1.7 | 2026-07-19 | Delivered the S0-5 historical coverage audit (`docs/phase0_data_audit.md` + deterministic artifacts under `artifacts/phase0_data_audit/`): per-channel 1-minute coverage/gap/outage profiles, empirical monthly `k_c` and rule-based cloud-regime distributions read from the data, and full-period maintenance/outage/curtailment corroboration. Corrected the S0-4 operator leads (WS-3 GHI down **March 2025 → 2025-06-25**, not "March 2026"; RSI WS3.1/3.2/3.3 removed 2025-06-30, WS4.1 2025-09-01, WS4.2 2026-01-05). S0-5 acceptance is **🟡 YELLOW** pending the full-history CI coverage refresh and the historian-timezone confirmation; Gate M0 stays **2/7**. No product requirement or gate criterion changed. |
 | 1.8 | 2026-07-19 | **S0-5 complete.** Attached the strict full-history audit from CI run 29683909065: **19 months (2024-12-21 → 2026-06-30)**, 377 instantaneous XLSX workbooks plus the 145-ZIP COV cross-check, 138 outage candidates. **All six operator-reported sensor leads are now corroborated by the sensor data** — notably the WS-3 GHI outage measured **2025-03-06 → 2025-06-23** (start date identical to the maintenance "Communication Loss" ticket), and the WS-4 RSI_01/RSI_02 removals measured one day after their reported dates. Newly surfaced: a 168-day WS-5 GHI outage (2025-02-01 → 2025-07-18) and a WS-2 GHI outage (Feb–May 2026) with no operator record. The empirical regime distribution shows `HIGHLY_VARIABLE` as the modal regime and **no clean calendar season** (inter-annual variation comparable to intra-annual), so the ML-002 test split must be defined against the observed regime distribution rather than the Gregorian calendar. S0-5 → ✅ and M0 count **2/7 → 3/7**. The historian-timezone caveat is carried, not blocking, per the S0-5 GO decision. No product requirement or gate criterion changed. |
+| 1.9 | 2026-07-19 | Added the **Sprint 0 progress board** — per-task progress with explicit ⬜ sub-deliverables so a finished task can be ticked green at a glance — and recorded the **S0-6 GO decision**: the repository skeleton and 256 passing tests exist, and no part of S0-6 depends on the open S0-2 historian or S0-4 certificate items. S0-6's remaining work is exactly two items: general push/PR CI and `tests/leakage/test_no_future_leakage.py`. Gate M0 stays 3/7. No product requirement or gate criterion changed. |
 
 ### 1.2 Sign-off Required Before Phase 1
 
@@ -2278,7 +2279,21 @@ Sequence models · TFT / NHITS · satellite · array-as-sensor · NWP *modelling
 | **S0-6** | 🟡 **Partially complete** | Repository skeleton plus NWP, COV, DNI·cosZ, and site-metadata unit/integration/notebook/workflow tests exist; the final local suite target is **228 tests**. The S0-3 full-history workflow is green. | Add general CI for every push/PR and the required `tests/leakage/test_no_future_leakage.py`; obtain a green general-CI run. Task-specific workflows are not the full S0-6 deliverable. |
 | **S0-7** | ⬜ **Not started / decision pending** | Manual SCADA export is known as the current offline path. No written OT-security decision or decision date is recorded. | Hold/escalate the OT-security conversation and record the achievable production data path, cadence, latency, owner, and decision date. |
 
-**Gate status:** M0 is **not passed (3/7 fully accepted)**. S0-1, S0-3, and S0-5 are accepted; S0-2 remains 🟡 pending historian configuration evidence. **S0-3 decision: COMPLETE.** **S0-4 decision: consolidation delivered; 🟡 pending serial/calibration certificates and mapping/geometry confirmations.** **S0-5 decision: COMPLETE.** The full 19-month history is audited, all six operator leads are sensor-corroborated, and the empirical regime distribution — not a calendar — now defines seasonality. See [`docs/phase0_data_audit.md`](docs/phase0_data_audit.md). **NO-GO for Phase 1 and for any model.**
+**Gate status:** M0 is **not passed (3/7 fully accepted)**. S0-1, S0-3, and S0-5 are accepted; S0-2 remains 🟡 pending historian configuration evidence. **S0-3 decision: COMPLETE.** **S0-4 decision: consolidation delivered; 🟡 pending serial/calibration certificates and mapping/geometry confirmations.** **S0-5 decision: COMPLETE.** The full 19-month history is audited, all six operator leads are sensor-corroborated, and the empirical regime distribution — not a calendar — now defines seasonality. See [`docs/phase0_data_audit.md`](docs/phase0_data_audit.md). **S0-6 decision: GO now** — the repository skeleton and 256 passing tests exist, and no part of S0-6 depends on the open S0-2 historian or S0-4 certificate items; deliver general push/PR CI and `tests/leakage/test_no_future_leakage.py`. **NO-GO for Phase 1 and for any model.**
+
+#### Sprint 0 progress board
+
+> Tick a task green **only** when its acceptance gate is met — never on implementation evidence alone. Sub-items marked ⬜ are the exact remaining work.
+
+| # | Task | Progress | Sub-deliverables |
+|---|---|---|---|
+| **S0-1** | NWP archiver | ✅ **Done (4/4)** | ✅ code + schema · ✅ IFS/AIFS workflow live · ✅ Shared-Drive read-back · ✅ observation 2/2 |
+| **S0-2** | COV characterisation | 🟡 **4/5** | ✅ 145/145 ZIP reconciliation · ✅ per-tag deadband / inter-arrival / max-gap evidence · ✅ `canonical_freq=1min` · ✅ report + deterministic artifacts · ⬜ **source-system historian evidence** (timestamp semantics, configured max-report-time, configured deadband) |
+| **S0-3** | DNI·cosZ derived-vs-measured | ✅ **Done (4/4)** | ✅ full-history strict run 29589030480 · ✅ 40/40 cases `measured` · ✅ `sensor_metadata.is_derived_tag=false` · ✅ report + artifacts |
+| **S0-4** | Site metadata audit | 🟡 **5/6** | ✅ canonical `site_configuration` · ✅ survey geometry (row pitch / GCR / module height) · ✅ instrument inventory · ✅ 12-point RSI mounting survey · ✅ schema validation + tests · ⬜ **8 owner/due-dated `unresolved_metadata` fields** (serials, calibration certificates, RSI model, DHI shading, DR20 ISO class, EMI↔WS mapping, design geometry, ML defaults) |
+| **S0-5** | Historical coverage audit | ✅ **Done (6/6)** | ✅ 19-month coverage/gap profile · ✅ 138 outage candidates · ✅ empirical monthly `k_c` · ✅ data-derived cloud-regime distribution · ✅ all six operator leads sensor-corroborated · ✅ maintenance / outage / curtailment periods |
+| **S0-6** | Repo skeleton + CI + leakage harness | 🟡 **2/4** | ✅ repository skeleton · ✅ 256 passing tests (unit / integration / leakage / workflow-contract) · ⬜ **general push/PR CI** · ⬜ **`tests/leakage/test_no_future_leakage.py`** |
+| **S0-7** | Escalate OD-1 to OT security | ⬜ **Not started (0/1)** | ⬜ written production data-path / cadence / latency decision, or a named owner and a decision date |
 
 #### Sprint 0 acceptance checklist
 
