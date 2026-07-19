@@ -1,7 +1,7 @@
 lead_id,emi,channel_key,reported_start,reported_end,description,measured_start,measured_end,measured_run_count,status
-ws3-ghi-outage,EMI03,GHI,2025-03-01,2025-06-25,"WS-3 GHI down March 2025, normal since 2025-06-25",,,0,not_found
-ws3-rsi1-removal,EMI03,RSI_01,2025-06-30,,RSI WS3.1 removed 2025-06-30,2025-12-01,2026-05-20,2,absent_from_window_start
-ws3-rsi2-removal,EMI03,RSI_02,2025-06-30,,RSI WS3.2 removed 2025-06-30,2025-12-01,2026-05-20,2,absent_from_window_start
-ws3-rsi3-removal,EMI03,RSI_03,2025-06-30,,RSI WS3.3 removed 2025-06-30,2025-12-01,2026-05-20,2,absent_from_window_start
-ws4-rsi1-removal,EMI04,RSI_01,2025-09-01,,RSI WS4.1 removed 2025-09-01,2025-12-02,2026-06-30,3,corroborated
+ws3-ghi-outage,EMI03,GHI,2025-03-01,2025-06-25,"WS-3 GHI down March 2025, normal since 2025-06-25",2025-03-06,2025-06-23,3,corroborated
+ws3-rsi1-removal,EMI03,RSI_01,2025-06-30,,RSI WS3.1 removed 2025-06-30,2025-04-16,2026-05-20,6,corroborated
+ws3-rsi2-removal,EMI03,RSI_02,2025-06-30,,RSI WS3.2 removed 2025-06-30,2025-07-17,2026-05-20,6,corroborated
+ws3-rsi3-removal,EMI03,RSI_03,2025-06-30,,RSI WS3.3 removed 2025-06-30,2025-04-16,2026-05-20,6,corroborated
+ws4-rsi1-removal,EMI04,RSI_01,2025-09-01,,RSI WS4.1 removed 2025-09-01,2025-09-02,2026-06-30,4,corroborated
 ws4-rsi2-removal,EMI04,RSI_02,2026-01-05,,RSI WS4.2 removed 2026-01-05,2026-01-06,2026-06-30,3,corroborated

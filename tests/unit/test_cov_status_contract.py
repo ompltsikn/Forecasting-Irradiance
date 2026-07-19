@@ -48,7 +48,7 @@ def test_measured_cov_decision_is_consistent_across_config_and_ledgers() -> None
         assert "34 meteorological" in text
         assert "configured max-report-time" in text
         assert "`unknown`" in text
-        assert "2/7" in text
+        assert "3/7" in text
         assert "NO-GO for Phase 1" in text
         assert "docs/phase0_cov_characterisation.md" in text
         assert "Sprint 0 acceptance checklist" in text
@@ -68,17 +68,13 @@ def test_measured_cov_decision_is_consistent_across_config_and_ledgers() -> None
         ]
         assert s0_3_status_lines
 
-        # S0-5 must read identically as "delivered but not yet accepted" in all
-        # three normative documents, and must point at its deliverable.
-        assert (
-            "**S0-5 decision: audit delivered; 🟡 acceptance pending "
-            "full-history CI coverage refresh and historian timezone "
-            "confirmation**" in text
-        )
+        # S0-5 must read identically as complete in all three normative
+        # documents, and must point at its deliverable.
+        assert "**S0-5 decision: COMPLETE.**" in text
         assert "docs/phase0_data_audit.md" in text
         s0_5_status_lines = [
             line
             for line in text.splitlines()
-            if line.startswith("| **S0-5** |") and "🟡" in line
+            if line.startswith("| **S0-5** |") and "✅" in line
         ]
         assert s0_5_status_lines
